@@ -14,7 +14,8 @@
     "lead_model": "opus",
     "teammate_model": "sonnet",
     "max_gap_loops": 3,
-    "max_parallel": 4
+    "max_parallel": 4,
+    "isolation": "shared"
   },
   "repair": {
     "max_retries": 2,
