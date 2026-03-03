@@ -28,6 +28,11 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   ├── fd-research-synthesizer.md
 │   ├── fd-roadmapper.md
 │   └── fd-verifier.md
+├── skills/                   ← Claude Code skills
+│   └── error-analyzer/
+│       ├── SKILL.md
+│       ├── scripts/ea.sh
+│       └── resources/api-reference.md
 └── fucking-done/             ← Core system (templates, references, workflows)
     ├── references/           ← Configuration & policy docs
     ├── templates/            ← File templates for project artifacts
@@ -49,6 +54,11 @@ cp -r commands/fd/ ~/.claude/commands/fd/
 # Agents
 mkdir -p ~/.claude/agents/
 cp agents/fd-*.md ~/.claude/agents/
+
+# Skills
+mkdir -p ~/.claude/skills/
+cp -r skills/error-analyzer/ ~/.claude/skills/error-analyzer/
+chmod +x ~/.claude/skills/error-analyzer/scripts/ea.sh
 ```
 
 **Upgrading from older version?** Remove stale files:
@@ -64,6 +74,7 @@ rm -f ~/.claude/commands/fd/new-project.md
 ls ~/.claude/commands/fd/
 ls ~/.claude/agents/fd-*.md
 ls ~/.claude/fucking-done/
+ls ~/.claude/skills/error-analyzer/
 ```
 
 ### 3. Restart Claude Code
