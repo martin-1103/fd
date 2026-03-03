@@ -19,9 +19,7 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   └── run.md
 ├── agents/                   ← Background worker agents
 │   ├── fd-codebase-mapper.md
-│   ├── fd-debugger.md
 │   ├── fd-executor.md
-│   ├── fd-integration-checker.md
 │   ├── fd-phase-researcher.md
 │   ├── fd-plan-checker.md
 │   ├── fd-planner.md
@@ -388,9 +386,7 @@ Tambahkan di `~/.claude/settings.json` atau project-level `.claude/settings.json
 | Agent | Fungsi | Dipanggil oleh |
 |-------|--------|----------------|
 | `fd-codebase-mapper` | Analyze codebase per focus area | `/fd:map-codebase`, `/fd:init` |
-| `fd-debugger` | Debug dengan scientific method | `/fd:debug` |
 | `fd-executor` | Execute plan dengan atomic commits | `/fd:run` |
-| `fd-integration-checker` | Verify cross-phase integration & E2E flows | `/fd:run` (milestone audit) |
 | `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
 | `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |
 | `fd-planner` | Buat execution plan per phase | `/fd:run` |

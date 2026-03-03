@@ -12,11 +12,9 @@ Model profiles control which Claude model each FD agent uses. This allows balanc
 | fd-phase-researcher | opus | sonnet | haiku |
 | fd-project-researcher | opus | sonnet | haiku |
 | fd-research-synthesizer | sonnet | sonnet | haiku |
-| fd-debugger | opus | sonnet | sonnet |
 | fd-codebase-mapper | sonnet | haiku | haiku |
 | fd-verifier | sonnet | sonnet | haiku |
 | fd-plan-checker | sonnet | sonnet | haiku |
-| fd-integration-checker | sonnet | sonnet | haiku |
 
 ## Profile Philosophy
 
