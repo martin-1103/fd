@@ -9,6 +9,28 @@ You are a thinking partner, not an interviewer. The user is the visionary — yo
 - Kalau ada istilah teknis, tetap pakai English tapi jelasin singkat kalau perlu.
 - CONTEXT.md tetap ditulis dalam English (karena downstream agents butuh).
 
+**ANTI-JARGON RULE:**
+- Frame gray areas dan pertanyaan dari sudut pandang USER EXPERIENCE, bukan implementasi teknis.
+- Pertanyaan harus bisa dijawab oleh non-developer yang tau produknya.
+- Kalau terpaksa pakai istilah teknis, SELALU kasih analogi atau penjelasan 1 kalimat.
+
+Contoh SALAH (terlalu teknis):
+  - "Mau pakai infinite scroll atau pagination?"
+  - "Error handling strategy gimana — retry with backoff atau fail-fast?"
+  - "State management pakai global store atau local state?"
+
+Contoh BENAR (dari sudut user):
+  - "Kalau scroll ke bawah, mau otomatis load lagi atau ada tombol 'Load More'?"
+  - "Kalau gagal, mau coba ulang sendiri atau langsung kasih tau error?"
+  - "Data ini perlu ke-share antar halaman, atau cukup di halaman itu aja?"
+
+**Escape hatch:** Kalau pertanyaan MEMANG ga bisa di-simplify tanpa kehilangan nuansa
+(misal: "optimistic update vs server-confirmed"), tetap pakai istilah teknis tapi
+WAJIB tambahin 1 kalimat penjelasan behavior-nya dari sudut user.
+Contoh: "Optimistic update — langsung keliatan berubah, tapi bisa ke-rollback kalau server reject."
+
+**Rule of thumb:** Default = bahasa non-teknis. Teknis = exception yang butuh penjelasan.
+
 **OPINI & BRUTAL TRUTH:**
 - Tiap gray area yang di-discuss, Claude WAJIB kasih opini:
   - "Menurut gw yang paling bagus: [X], karena [alasan konkret]"
@@ -63,17 +85,29 @@ Capture the idea in a "Deferred Ideas" section. Don't lose it, don't act on it.
 
 <step name="validate_phase" priority="first">
 Parse arguments: first token = FEATURE, second token = PHASE.
-Set PLANNING_DIR=`.planning/$FEATURE`
+Set PLANNING_DIR=`.fd/planning/$FEATURE`
 
 Load and validate:
 - Read `$PLANNING_DIR/STATE.md`
 - Read `$PLANNING_DIR/ROADMAP.md`
 - Find phase entry in roadmap
 
+Resolve phase directory:
+```bash
+PADDED_PHASE=$(printf "%02d" $PHASE 2>/dev/null || echo "$PHASE")
+PHASE_DIR=$(ls -d $PLANNING_DIR/phases/$PADDED_PHASE-* $PLANNING_DIR/phases/$PHASE-* 2>/dev/null | head -1)
+
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_NAME=$(grep -E "^### Phase $PHASE:" "$PLANNING_DIR/ROADMAP.md" | sed 's/^### Phase [^:]*: *//')
+  PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
+  PHASE_DIR="$PLANNING_DIR/phases/${PADDED_PHASE}-${PHASE_SLUG}"
+fi
+```
+
 **If feature directory not found:**
 ```
-Feature directory `.planning/$FEATURE` ga ada.
-Jalanin `/fd:new-project` dulu.
+Feature directory `.fd/planning/$FEATURE` ga ada.
+Jalanin `/fd:init` dulu.
 ```
 Exit workflow.
 
@@ -88,7 +122,7 @@ Exit workflow.
 </step>
 
 <step name="check_existing">
-Check if `$PLANNING_DIR/phases/{PHASE}-CONTEXT.md` exists.
+Check if `$PHASE_DIR/$PADDED_PHASE-CONTEXT.md` exists.
 
 **If NOT exists:** Continue to analyze_phase.
 
@@ -128,13 +162,18 @@ Gray areas depend on what's being built:
 
 Generate 3-4 **phase-specific** gray areas, not generic categories.
 
+**Frame gray areas as user-facing questions, not technical decisions.**
+- SALAH: "Data fetching strategy" → BENAR: "Gimana data-nya muncul ke user"
+- SALAH: "Error handling approach" → BENAR: "Kalau ada yang gagal, user liat apa"
+- SALAH: "State persistence" → BENAR: "Data-nya ilang atau kesimpen kalau refresh"
+
 Continue to present_gray_areas.
 </step>
 
 <step name="present_gray_areas">
 Present the domain boundary and gray areas to user.
 
-**KNOWN BUG (github.com/anthropics/claude-code/issues/9846): AskUserQuestion silently fails when called in the first assistant response after a slash command. Do NOT call AskUserQuestion in this step. Use freeform text only — same pattern as /fd:new-project.**
+**KNOWN BUG (github.com/anthropics/claude-code/issues/9846): AskUserQuestion silently fails when called in the first assistant response after a slash command. Do NOT call AskUserQuestion in this step. Use freeform text only — same pattern as /fd:init.**
 
 Present everything as plain text with numbered gray areas. End with a freeform question:
 
@@ -209,6 +248,9 @@ Continue to write_context when user confirms.
 - Each answer should inform the next question — follow the thread
 - If user picks "Other" (auto-added by AskUserQuestion), receive their input, reflect it back, confirm
 - Kasih opini di setiap pertanyaan — jangan netral
+- **ANTI-JARGON:** Pertanyaan dan opsi pakai bahasa yang non-developer bisa paham.
+  Kalau harus pakai istilah teknis, tambahin penjelasan dalam kurung.
+  Contoh opsi: "Infinite scroll (otomatis load waktu scroll ke bawah)" bukan cuma "Infinite scroll"
 
 **Scope creep handling:**
 If user mentions something outside the phase domain:
@@ -220,11 +262,11 @@ Track deferred ideas internally.
 <step name="write_context">
 Create/update CONTEXT.md capturing decisions made.
 
-**File location:** `$PLANNING_DIR/phases/{PHASE}-CONTEXT.md`
+**File location:** `$PHASE_DIR/$PADDED_PHASE-CONTEXT.md`
 
 **Ensure directory exists:**
 ```bash
-mkdir -p "$PLANNING_DIR/phases"
+mkdir -p "$PHASE_DIR"
 ```
 
 **Structure the content using the template from context.md. Sections match areas discussed:**
@@ -281,14 +323,14 @@ mkdir -p "$PLANNING_DIR/phases"
 *Context gathered: [date]*
 ```
 
-Write the file. Continue to confirm_creation.
+Write to `$PHASE_DIR/$PADDED_PHASE-CONTEXT.md`. Continue to confirm_creation.
 </step>
 
 <step name="confirm_creation">
 Present summary and next steps:
 
 ```
-CONTEXT.md updated: $PLANNING_DIR/phases/{PHASE}-CONTEXT.md
+CONTEXT.md updated: $PHASE_DIR/$PADDED_PHASE-CONTEXT.md
 
 ## Decisions yang ke-capture
 

@@ -10,12 +10,18 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   ├── README.md
 │   ├── analyze.md
 │   ├── discuss-phase.md
+│   ├── feature.md
 │   ├── fix.md
-│   ├── new-project.md
+│   ├── init.md
+│   ├── map-codebase.md
+│   ├── merge.md
 │   ├── planner.md
 │   └── run.md
 ├── agents/                   ← Background worker agents
+│   ├── fd-codebase-mapper.md
+│   ├── fd-debugger.md
 │   ├── fd-executor.md
+│   ├── fd-integration-checker.md
 │   ├── fd-phase-researcher.md
 │   ├── fd-plan-checker.md
 │   ├── fd-planner.md
@@ -23,6 +29,11 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   ├── fd-research-synthesizer.md
 │   ├── fd-roadmapper.md
 │   └── fd-verifier.md
+├── skills/                   ← Claude Code skills
+│   └── error-analyzer/
+│       ├── SKILL.md
+│       ├── scripts/ea.sh
+│       └── resources/api-reference.md
 └── fucking-done/             ← Core system (templates, references, workflows)
     ├── references/           ← Configuration & policy docs
     ├── templates/            ← File templates for project artifacts
@@ -31,7 +42,9 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 
 ## Cara Install
 
-### 1. Copy semua file ke `~/.claude/`
+### Linux / macOS
+
+#### 1. Copy semua file ke `~/.claude/`
 
 ```bash
 # Core system
@@ -44,20 +57,77 @@ cp -r commands/fd/ ~/.claude/commands/fd/
 # Agents
 mkdir -p ~/.claude/agents/
 cp agents/fd-*.md ~/.claude/agents/
+
+# Skills
+mkdir -p ~/.claude/skills/
+cp -r skills/error-analyzer/ ~/.claude/skills/error-analyzer/
+chmod +x ~/.claude/skills/error-analyzer/scripts/ea.sh
 ```
 
-### 2. Verify installation
+**Upgrading from older version?** Remove stale files:
 
 ```bash
-# Pastikan semua file ada
+rm -f ~/.claude/commands/fd/new-project.md
+```
+
+#### 2. Verify installation
+
+```bash
 ls ~/.claude/commands/fd/
 ls ~/.claude/agents/fd-*.md
 ls ~/.claude/fucking-done/
+ls ~/.claude/skills/error-analyzer/
 ```
 
-### 3. Restart Claude Code
+#### 3. Restart Claude Code
 
 Setelah copy, restart Claude Code supaya commands dan agents ke-detect.
+
+---
+
+### Windows
+
+Claude Code support Windows native. Folder `.claude/` ada di `%USERPROFILE%\.claude\` (biasanya `C:\Users\USERNAME\.claude\`).
+
+#### 1. Copy semua file (PowerShell)
+
+```powershell
+# Core system
+Copy-Item -Recurse -Force fucking-done\ "$env:USERPROFILE\.claude\fucking-done\"
+
+# Commands
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands\fd" | Out-Null
+Copy-Item -Recurse -Force commands\fd\* "$env:USERPROFILE\.claude\commands\fd\"
+
+# Agents
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\agents" | Out-Null
+Copy-Item -Force agents\fd-*.md "$env:USERPROFILE\.claude\agents\"
+
+# Skills
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\error-analyzer" | Out-Null
+Copy-Item -Recurse -Force skills\error-analyzer\* "$env:USERPROFILE\.claude\skills\error-analyzer\"
+```
+
+**Upgrading from older version?** Remove stale files:
+
+```powershell
+Remove-Item -Force "$env:USERPROFILE\.claude\commands\fd\new-project.md" -ErrorAction SilentlyContinue
+```
+
+#### 2. Verify installation
+
+```powershell
+dir "$env:USERPROFILE\.claude\commands\fd\"
+dir "$env:USERPROFILE\.claude\agents\fd-*.md"
+dir "$env:USERPROFILE\.claude\fucking-done\"
+dir "$env:USERPROFILE\.claude\skills\error-analyzer\"
+```
+
+#### 3. Restart Claude Code
+
+Setelah copy, restart Claude Code supaya commands dan agents ke-detect.
+
+---
 
 ## Path yang Perlu Diperhatikan
 
@@ -70,18 +140,32 @@ File-file berikut mengandung **hardcoded absolute path** ke `/root/.claude/fucki
 | `agents/fd-research-synthesizer.md` | Agent |
 | `agents/fd-roadmapper.md` | Agent |
 | `commands/fd/discuss-phase.md` | Command |
-| `commands/fd/new-project.md` | Command |
+| `commands/fd/init.md` | Command |
 | `commands/fd/run.md` | Command |
 | `fucking-done/templates/phase-prompt.md` | Template |
 | `fucking-done/templates/codebase/structure.md` | Template |
 | `fucking-done/references/verification-patterns.md` | Reference |
 
-**Kalau home directory kamu bukan `/root/`**, kamu perlu find-and-replace path ini:
+**Kalau home directory kamu bukan `/root/`**, kamu perlu find-and-replace path ini.
+
+**Linux / macOS:**
 
 ```bash
 # Contoh: ganti /root/ ke /home/username/
 find ~/.claude/commands/fd/ ~/.claude/agents/ ~/.claude/fucking-done/ \
   -name "*.md" -exec sed -i 's|/root/.claude/fucking-done|/home/USERNAME/.claude/fucking-done|g' {} +
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Ganti USERNAME dengan username kamu
+$claudeDir = "$env:USERPROFILE\.claude"
+$old = "/root/.claude/fucking-done"
+$new = "/Users/USERNAME/.claude/fucking-done"
+
+Get-ChildItem -Recurse -Include "*.md" "$claudeDir\commands\fd", "$claudeDir\agents", "$claudeDir\fucking-done" |
+  ForEach-Object { (Get-Content $_.FullName -Raw) -replace [regex]::Escape($old), $new | Set-Content $_.FullName -NoNewline }
 ```
 
 Ganti `USERNAME` dengan username kamu.
@@ -91,27 +175,32 @@ Ganti `USERNAME` dengan username kamu.
 ### Build Workflow — Bikin fitur baru
 
 ```
-/fd:new-project → /fd:discuss-phase → /fd:run
+/fd:init → /fd:feature → /fd:discuss-phase → /fd:run → /fd:merge
 ```
 
 | Command | Fungsi | Input | Output |
 |---------|--------|-------|--------|
-| `/fd:new-project <name>` | Init project, deep context gathering | Nama fitur | `.planning/<name>/PROJECT.md` |
-| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase name | Phase context |
+| `/fd:init` | Init project, deep context gathering | (none) | `.fd/PROJECT.md`, `.fd/config.json` |
+| `/fd:map-codebase` | Analyze codebase with parallel agents | (none) | `.fd/codebase/` (7 docs) |
+| `/fd:feature <name>` | Plan a feature (research, requirements, roadmap) | Nama fitur | `.fd/planning/<name>/` |
+| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase number | `{phase}-CONTEXT.md` di planning dir |
 | `/fd:run <name>` | Plan, execute, verify semua phase | Nama fitur | Built feature + verification |
+| `/fd:merge [slug]` | Merge worktree back ke main branch | Branch slug (optional) | Merged code, cleaned worktree |
 
 **Contoh:**
 
 ```
-/fd:new-project chat-widget
-/fd:discuss-phase chat-widget phase-1-ui
+/fd:init
+/fd:feature chat-widget
+/fd:discuss-phase chat-widget 1
 /fd:run chat-widget
+/fd:merge
 ```
 
 ### Fix Workflow — Debug & fix bug
 
 ```
-/fd:analyze → /fd:planner → /fd:fix
+/fd:analyze → /fd:planner → /fd:fix → /fd:merge
 ```
 
 | Command | Fungsi | Input | Output |
@@ -119,6 +208,7 @@ Ganti `USERNAME` dengan username kamu.
 | `/fd:analyze <input>` | Root cause investigation | Error log, screenshot, URL, file path, atau deskripsi | `.fd/bugs/{NN}-{slug}.md` |
 | `/fd:planner <NN>` | Buat fix plan dari evidence | Bug number | `.fd/plans/{NN}-{slug}.md` |
 | `/fd:fix <NN>` | Execute fix + review loop | Plan number | `.fd/fixes/{NN}-{slug}.md` |
+| `/fd:merge [slug]` | Merge worktree back ke main branch | Branch slug (optional) | Merged code, cleaned worktree |
 
 **Contoh:**
 
@@ -126,6 +216,7 @@ Ganti `USERNAME` dengan username kamu.
 /fd:analyze "TypeError: Cannot read property 'x' of undefined"
 /fd:planner 01
 /fd:fix 01
+/fd:merge
 ```
 
 ## Workflow Diagram
@@ -133,27 +224,27 @@ Ganti `USERNAME` dengan username kamu.
 ### Build Workflow
 
 ```
-  /fd:new-project         /fd:discuss-phase          /fd:run
-  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐
-  │ Research     │        │ Adaptive Q&A     │      │ For each phase:     │
-  │ domain &    │──────▶ │ per phase        │────▶│  1. Research        │
-  │ create      │        │ (gather context) │      │  2. Plan            │
-  │ PROJECT.md  │        └──────────────────┘      │  3. Check plan      │
-  └─────────────┘                                   │  4. Execute         │
-                                                    │  5. Verify          │
-                                                    └─────────────────────┘
+  /fd:init           /fd:feature          /fd:discuss-phase       /fd:run                    /fd:merge
+  ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐   ┌─────────────────────┐   ┌──────────────┐
+  │ Setup       │   │ Research     │   │ Adaptive Q&A     │   │ For each phase:     │   │ Merge back   │
+  │ PROJECT.md  │──▶│ Requirements │──▶│ per phase        │──▶│  1. Research        │──▶│ to main      │
+  │ config.json │   │ Roadmap      │   │ (gather context) │   │  2. Plan            │   │ Push remote  │
+  │ codebase/   │   └──────────────┘   └──────────────────┘   │  3. Check plan      │   │ Clean up     │
+  └─────────────┘                                              │  4. Execute         │   └──────────────┘
+                                                               │  5. Verify          │
+                                                               └─────────────────────┘
 ```
 
 ### Fix Workflow
 
 ```
-  /fd:analyze              /fd:planner                /fd:fix
-  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐
-  │ Investigate  │        │ Verify claims    │      │ Execute plan steps  │
-  │ root cause  │──────▶ │ via ast-grep     │────▶│ with sonnet agents  │
-  │ multi-input │        │ Detect band-aids │      │ Review with opus    │
-  │ (log, URL,  │        │ Produce fix plan │      │ Loop until 7/7 pass │
-  │  screenshot)│        └──────────────────┘      │ Save fix report     │
+  /fd:analyze              /fd:planner                /fd:fix                    /fd:merge
+  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐   ┌──────────────┐
+  │ Investigate  │        │ Verify claims    │      │ Execute plan steps  │   │ Merge back   │
+  │ root cause  │──────▶ │ via ast-grep     │────▶│ with sonnet agents  │──▶│ to main      │
+  │ multi-input │        │ Detect band-aids │      │ Review with opus    │   │ Push remote  │
+  │ (log, URL,  │        │ Produce fix plan │      │ Loop until 7/7 pass │   │ Clean up     │
+  │  screenshot)│        └──────────────────┘      │ Save fix report     │   └──────────────┘
   └─────────────┘                                   └─────────────────────┘
 ```
 
@@ -181,7 +272,7 @@ FD butuh beberapa MCP servers dan built-in tools. **Tanpa ini, beberapa fitur ti
 
 | Skenario | MCP yang dibutuhkan |
 |----------|-------------------|
-| Build workflow (`/fd:new-project`, `/fd:run`) | **Context7** (strongly recommended) |
+| Build workflow (`/fd:init`, `/fd:feature`, `/fd:run`) | **Context7** (strongly recommended) |
 | Fix workflow — code-only bugs | Tidak ada (semua pakai built-in tools) |
 | Fix workflow — web app bugs (URL input) | **Playwright** |
 | Fix workflow — deep research | **Tavily** dan/atau **Exa** (optional, WebSearch sebagai fallback) |
@@ -214,7 +305,7 @@ Repo: https://github.com/ast-grep/ast-grep
 
 Extract code structure/API surface untuk context compression. Default disabled (`aid.enabled: false` di config). Skip otomatis kalau ga terinstall.
 
-Dipakai oleh: `/fd:run`, `/fd:new-project`
+Dipakai oleh: `/fd:run`, `/fd:feature`
 
 ```bash
 # Download binary dari GitHub releases
@@ -296,13 +387,16 @@ Tambahkan di `~/.claude/settings.json` atau project-level `.claude/settings.json
 
 | Agent | Fungsi | Dipanggil oleh |
 |-------|--------|----------------|
-| `fd-project-researcher` | Research domain ecosystem | `/fd:new-project` |
-| `fd-research-synthesizer` | Synthesize research outputs | `/fd:new-project` |
-| `fd-roadmapper` | Buat roadmap dari PROJECT.md | `/fd:new-project` |
-| `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
-| `fd-planner` | Buat execution plan per phase | `/fd:run` |
-| `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |
+| `fd-codebase-mapper` | Analyze codebase per focus area | `/fd:map-codebase`, `/fd:init` |
+| `fd-debugger` | Debug dengan scientific method | `/fd:debug` |
 | `fd-executor` | Execute plan dengan atomic commits | `/fd:run` |
+| `fd-integration-checker` | Verify cross-phase integration & E2E flows | `/fd:run` (milestone audit) |
+| `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
+| `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |
+| `fd-planner` | Buat execution plan per phase | `/fd:run` |
+| `fd-project-researcher` | Research domain ecosystem | `/fd:feature` |
+| `fd-research-synthesizer` | Synthesize research outputs | `/fd:feature` |
+| `fd-roadmapper` | Buat roadmap dari PROJECT.md | `/fd:feature` |
 | `fd-verifier` | Verify phase goal tercapai | `/fd:run` |
 
 ## Troubleshooting

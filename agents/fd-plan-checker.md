@@ -25,10 +25,7 @@ Your job: Goal-backward verification of PLANS before execution. Start from what 
 
 You are NOT the executor (verifies code after execution) or the verifier (checks goal achievement in codebase). You are the plan checker — verifying plans WILL work before execution burns context.
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <upstream_input>
@@ -255,11 +252,14 @@ issue:
   fix_hint: "Reframe as user-observable: 'User can log in', 'Session persists'"
 ```
 
-## Dimension 7: Context Compliance (if CONTEXT.md exists)
+## Dimension 7: Context Compliance
 
 **Question:** Do plans honor user decisions from /fd:discuss-phase?
 
-**Only check this dimension if CONTEXT.md was provided in the verification context.**
+**Activation:**
+- CONTEXT.md exists → check fully
+- CONTEXT.md missing but STATE.md shows discuss-phase ran → emit WARNING: "CONTEXT.md missing despite discuss-phase evidence in STATE.md — user decisions may be lost"
+- CONTEXT.md missing, no discuss-phase evidence → skip silently
 
 **Process:**
 1. Parse CONTEXT.md sections: Decisions, Claude's Discretion, Deferred Ideas
@@ -296,6 +296,37 @@ issue:
   task: 1
   deferred_idea: "Search/filtering (Deferred Ideas section)"
   fix_hint: "Remove search task - belongs in future phase per user decision"
+```
+
+## Dimension 8: Requirements Traceability
+
+**Question:** Do plans cover documented requirements mapped to this phase?
+
+**Activation:**
+- REQUIREMENTS.md exists with Traceability section → check fully
+- REQUIREMENTS.md missing or no traceability section → skip silently
+
+**Process:**
+1. Read REQUIREMENTS.md, find Traceability table
+2. Extract REQ-IDs mapped to the current phase
+3. For each REQ-ID, find covering task(s) across all plans
+4. Flag REQ-IDs with no covering task
+
+**Difference from Dimension 1:** Dimension 1 decomposes the ROADMAP goal text into requirements. Dimension 8 checks documented REQ-IDs from REQUIREMENTS.md — these may include requirements the goal text didn't explicitly mention.
+
+**Red flags:**
+- REQ-ID mapped to phase but no task addresses it
+- REQ-ID partially covered (requirement has multiple aspects, only some addressed)
+- REQ-ID covered by vague task that doesn't specifically address the requirement
+
+**Example issue:**
+```yaml
+issue:
+  dimension: requirements_traceability
+  severity: blocker
+  description: "NOTF-02 (email notifications for followers) mapped to this phase but no task addresses it"
+  req_id: "NOTF-02"
+  fix_hint: "Add task for email notification in existing plan or create new plan"
 ```
 
 </verification_dimensions>
@@ -481,31 +512,54 @@ Check that must_haves are properly derived from phase goal.
 - Specify the connection method (fetch, Prisma query, import)
 - Cover critical wiring (where stubs hide)
 
-## Step 10: Evaluate Handoff Readiness
+## Step 4.5: Check Requirements Traceability
 
-After checking goal alignment, coverage, and dependencies, evaluate handoff clarity.
+If REQUIREMENTS.md exists with a Traceability section:
 
-### Handoff Readiness
-Score each plan on handoff clarity (1-5):
+1. Extract REQ-IDs mapped to the current phase
+2. For each REQ-ID, find covering task(s) across all plans
+3. Flag uncovered REQ-IDs
 
-| Score | Meaning |
-|-------|---------|
-| 5 | Executor can implement without ANY interpretation needed |
-| 4 | Minor ambiguities but experienced executor can handle |
-| 3 | Some tasks need interpretation — executor may deviate |
-| 2 | Significant ambiguity — high chance of deviation |
-| 1 | Plan is too vague to execute reliably |
+**Traceability matrix:**
+```
+REQ-ID   | Description              | Covering Tasks | Status
+---------|--------------------------|----------------|--------
+AUTH-01  | Login with email/pwd     | 01:T1, 01:T2   | COVERED
+NOTF-02  | Email for followers      | -               | MISSING
+PROF-01  | Edit profile             | 02:T1           | COVERED
+```
 
-Evaluate:
-- Are task descriptions specific enough? (file paths, function names, not just "add auth")
-- Are done criteria measurable? (not "component works" but "returns 200 on GET /api/users")
-- Are dependencies between tasks clear?
-- Are @-references to context files complete?
-- Does the handoff section (if present) have realistic expected_artifacts?
+If REQUIREMENTS.md doesn't exist or has no traceability section: skip silently.
 
-If handoff_readiness < 3: recommend revision with specific improvement suggestions.
-If handoff_readiness 3-4: note areas of ambiguity but pass.
-If handoff_readiness 5: ideal plan.
+## Step 10: Evaluate Execution Clarity
+
+After checking goal alignment, coverage, and dependencies, evaluate per-task execution clarity.
+
+**For each task, check:**
+1. **File paths absolute** — not "the auth file" but `src/app/api/auth/login/route.ts`
+2. **Action verbs specific** — not "implement auth" but "create POST handler accepting {email, password}, validate with bcrypt, return JWT"
+3. **Done criteria testable** — not "auth works" but "POST /api/auth/login returns 200 with valid credentials, 401 with invalid"
+4. **No architectural decisions deferred** — task must not require executor to choose between approaches
+
+**Score:** passing tasks / total tasks.
+
+| Score | Level |
+|-------|-------|
+| 80-100% | Pass — plans are execution-ready |
+| 60-79% | Warning — ambiguous tasks noted, should fix |
+| Below 60% | Blocker — too many tasks require interpretation, revision needed |
+
+**Example issue:**
+```yaml
+issue:
+  dimension: execution_clarity
+  severity: warning
+  description: "Task 2 action says 'implement auth' without specifying endpoint, validation, or response format"
+  plan: "01"
+  task: 2
+  failing_checks: ["action_not_specific", "done_not_testable"]
+  fix_hint: "Specify: POST /api/auth/login accepting {email, password}, bcrypt validation, returns {token, user}"
+```
 
 ## Step 11: Determine Overall Status
 
@@ -752,6 +806,12 @@ When all checks pass:
 | {req-2}     | 01,02 | Covered |
 | {req-3}     | 02    | Covered |
 
+### Requirements Traceability (if REQUIREMENTS.md exists)
+
+| REQ-ID | Description | Covering Tasks | Status |
+|--------|-------------|----------------|--------|
+| {id}   | {desc}      | 01:T1          | Covered |
+
 ### Plan Summary
 
 | Plan | Tasks | Files | Wave | Handoff | Status |
@@ -759,10 +819,10 @@ When all checks pass:
 | 01   | 3     | 5     | 1    | 5       | Valid  |
 | 02   | 2     | 4     | 2    | 4       | Valid  |
 
-### Handoff Readiness
+### Execution Clarity
 
-handoff_readiness: [score]
-handoff_notes: [specific areas of concern, if any]
+execution_clarity: [X]% ([passing]/[total] tasks pass all checks)
+clarity_notes: [specific areas of concern, if any]
 
 ### Ready for Execution
 
@@ -808,10 +868,17 @@ issues:
     fix_hint: "Add verification command"
 ```
 
-### Handoff Readiness
+### Execution Clarity
 
-handoff_readiness: [score]
-handoff_notes: [specific areas of concern]
+execution_clarity: [X]% ([passing]/[total] tasks pass all checks)
+clarity_notes: [specific areas of concern]
+
+### Requirements Traceability (if REQUIREMENTS.md exists)
+
+| REQ-ID | Description | Covering Tasks | Status |
+|--------|-------------|----------------|--------|
+| {id}   | {desc}      | 01:T1          | COVERED |
+| {id}   | {desc}      | -              | MISSING |
 
 ### Recommendation
 
@@ -851,11 +918,12 @@ Plan verification complete when:
 - [ ] Key links checked (wiring planned, not just artifacts)
 - [ ] Scope assessed (within context budget)
 - [ ] must_haves derivation verified (user-observable truths)
-- [ ] Handoff readiness scored (1-5) with notes on ambiguity areas
-- [ ] Context compliance checked (if CONTEXT.md provided):
-  - [ ] Locked decisions have implementing tasks
-  - [ ] No tasks contradict locked decisions
-  - [ ] Deferred ideas not included in plans
+- [ ] Execution clarity scored (% tasks passing all 4 checks)
+- [ ] Requirements traceability checked (if REQUIREMENTS.md has traceability section)
+- [ ] Context compliance checked:
+  - [ ] CONTEXT.md exists → full check (locked decisions, deferred ideas)
+  - [ ] CONTEXT.md missing + discuss-phase evidence → WARNING emitted
+  - [ ] CONTEXT.md missing + no evidence → silently skipped
 - [ ] Overall status determined (passed | issues_found)
 - [ ] Full findings written to PLAN-CHECK.md file in phase directory
 - [ ] Final response is ONLY a brief status line (not the full report)

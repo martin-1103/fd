@@ -51,7 +51,7 @@ Phases:
 What to commit:
 
 ```bash
-git add .planning/
+git add .fd/planning/
 git commit
 ```
 
@@ -124,16 +124,16 @@ Tasks completed: [N]/[N]
 - [Task 2 name]
 - [Task 3 name]
 
-SUMMARY: .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
+SUMMARY: .fd/planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
 ```
 
 What to commit:
 
 ```bash
-git add .planning/phases/XX-name/{phase}-{plan}-PLAN.md
-git add .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
-git add .planning/STATE.md
-git add .planning/ROADMAP.md
+git add .fd/planning/phases/XX-name/{phase}-{plan}-PLAN.md
+git add .fd/planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
+git add .fd/planning/STATE.md
+git add .fd/planning/ROADMAP.md
 git commit
 ```
 
@@ -154,7 +154,7 @@ Current: [task name]
 What to commit:
 
 ```bash
-git add .planning/
+git add .fd/planning/
 git commit
 ```
 
@@ -253,62 +253,82 @@ Each plan produces 2-4 commits (tasks + metadata). Clear, granular, bisectable.
 
 </commit_strategy_rationale>
 
-## Worktree Isolation (Experimental)
+## Worktree Isolation
 
-When `agent_team.isolation: "worktree"`, each executor gets an isolated git worktree.
+`/fd:run` and `/fd:fix` automatically create isolated git worktrees for each feature or fix. This keeps the main branch clean and allows parallel Claude Code sessions.
 
-### Setup (by lead in Phase 4)
+### How It Works
 
+**Feature worktree (from /fd:run):**
 ```bash
-# Create worktrees for each executor (with named branch)
-git worktree add -b fd-executor-1 .worktrees/executor-1 HEAD
-git worktree add -b fd-executor-2 .worktrees/executor-2 HEAD
-# ... up to max_parallel
+git worktree add -b fd/feature-{slug} .claude/worktrees/fd-feature-{slug} HEAD
 ```
 
-### Executor Behavior
-
-Each executor works in its worktree:
-- All file reads/writes happen in `.worktrees/executor-{i}/`
-- Git commits are local to the worktree branch
-- No conflict with other executors (isolated filesystem)
-
-### Merge (by lead in Phase 5)
-
-After executors shut down:
+**Fix worktree (from /fd:fix):**
 ```bash
-# For each worktree (merge by branch name, not path)
-git log --oneline main..fd-executor-{i}  # See what was committed
-git merge --no-ff fd-executor-{i} -m "merge: executor-{i} worktree"
+git worktree add -b fd/fix-{slug} .claude/worktrees/fd-fix-{slug} HEAD
 ```
 
-If merge conflict:
-- Log the conflict details
-- Add to gap closure for manual resolution
-- Do NOT auto-resolve merge conflicts
+All planning artifacts (STATE.md, ROADMAP.md, PLAN.md) and code changes happen inside the worktree. The main branch stays untouched.
 
-### Cleanup (by lead in Phase 7)
+### Merging Back
+
+Use `/fd:merge` to merge worktree changes back to main:
 
 ```bash
-git worktree remove .worktrees/executor-1
-git worktree remove .worktrees/executor-2
-git branch -d fd-executor-1
-git branch -d fd-executor-2
-rm -rf .worktrees/
+/fd:merge                    # Lists all FD worktrees, pick one
+/fd:merge fix-auth-bug       # Merge specific worktree by slug
 ```
 
-### When to Use
+`/fd:merge` provides:
+- Diff summary (files changed, commit count)
+- Dry-run merge conflict detection
+- Interactive conflict resolution
+- Squash or regular merge options
+- Automatic worktree + branch cleanup
 
-| Scenario | Recommended |
-|----------|-------------|
-| Single executor | shared (no benefit from worktrees) |
-| 2+ executors, independent phases | shared (low conflict risk) |
-| 2+ executors, overlapping files | **worktree** (prevents conflicts) |
-| CI/CD environment | shared (worktrees add complexity) |
+### Parallel Sessions
 
-### Limitations
+Since each feature/fix gets its own worktree, you can run multiple Claude Code sessions:
 
-- Worktrees don't work well with some tools that hardcode paths
-- Increases disk usage (full copy per worktree)
-- Merge step adds time after execution
-- Default is "shared" for simplicity — opt-in to worktrees when needed
+```
+Session 1: /fd:run chat-widget     → .claude/worktrees/fd-feature-chat-widget/
+Session 2: /fd:fix auth-bug        → .claude/worktrees/fd-fix-auth-bug/
+Session 3: /fd:run payment-flow    → .claude/worktrees/fd-feature-payment-flow/
+```
+
+Each session works in isolation — no merge conflicts during development.
+
+### Configuration
+
+In `.fd/config.json`:
+
+```json
+"worktree": {
+  "enabled": true,
+  "base_path": ".claude/worktrees",
+  "feature_branch_template": "fd/feature-{slug}",
+  "fix_branch_template": "fd/fix-{slug}",
+  "auto_cleanup": false
+}
+```
+
+Set `worktree.enabled: false` to disable worktree creation (all work happens on current branch).
+
+### Worktree Lifecycle
+
+| Event | Action |
+|-------|--------|
+| `/fd:run <feature>` | Creates `fd/feature-{slug}` worktree |
+| `/fd:fix <NN>` | Creates `fd/fix-{slug}` worktree |
+| Feature/fix complete | Announces completion, worktree preserved |
+| `/fd:merge` | Merges to main, removes worktree + branch |
+
+### When to Disable
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Simple solo project | Keep enabled (default) — isolation is always safer |
+| CI/CD pipeline | Disable — worktrees add complexity |
+| Monorepo with submodules | Disable — worktrees don't handle submodules well |
+| Quick one-off fix | Disable or just work on current branch |

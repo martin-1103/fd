@@ -36,14 +36,81 @@ The `$ARGUMENTS` variable contains the feature name. Parse and validate it immed
 3. Set variables:
    ```
    FEATURE=$ARGUMENTS
-   PLANNING_DIR=.planning/$FEATURE
+   PLANNING_DIR=.fd/planning/$FEATURE
    ```
 
-All subsequent paths use `$PLANNING_DIR` instead of `.planning/`.
+All subsequent paths use `$PLANNING_DIR` instead of `.fd/planning/`.
+After worktree setup (Phase 0.5), `$PLANNING_DIR` is relative to `$WORKTREE_ABS`.
 </argument_parsing>
+
+<worktree_setup>
+## Phase 0.5: Prepare Worktree
+
+After argument parsing, create an isolated worktree for this feature.
+
+### Create Worktree
+
+```bash
+FEATURE_SLUG=$FEATURE
+WORKTREE_BRANCH="fd/feature-${FEATURE_SLUG}"
+WORKTREE_PATH=".claude/worktrees/fd-feature-${FEATURE_SLUG}"
+
+# Check if worktree already exists
+if [ -d "$WORKTREE_PATH" ]; then
+  echo "Worktree sudah ada: $WORKTREE_PATH"
+fi
+```
+
+**If worktree exists:** Ask user:
+```
+Worktree untuk feature "${FEATURE}" sudah ada di ${WORKTREE_PATH}.
+Lanjutkan dari yang ada, atau mulai fresh (hapus dan buat ulang)?
+```
+- **Continue** → use existing worktree as-is
+- **Fresh start** → `git worktree remove $WORKTREE_PATH && git branch -D $WORKTREE_BRANCH` then create new
+
+**If worktree doesn't exist:** Create it:
+```bash
+mkdir -p .claude/worktrees
+git worktree add -b "$WORKTREE_BRANCH" "$WORKTREE_PATH" HEAD
+```
+
+### Set Working Context
+
+```bash
+WORKTREE_ABS=$(cd "$WORKTREE_PATH" && pwd)
+PLANNING_DIR=.fd/planning/$FEATURE
+```
+
+Note: `PLANNING_DIR` is relative to the worktree root (`$WORKTREE_ABS`).
+
+All subsequent agents (planner, executor, verifier) receive this in their prompt context:
+```
+WORKTREE: $WORKTREE_ABS
+All file operations happen inside this worktree directory.
+```
+
+STATE.md metadata includes:
+```yaml
+worktree:
+  path: $WORKTREE_PATH
+  branch: $WORKTREE_BRANCH
+  base_commit: $(git rev-parse HEAD)
+```
+
+### Completion Note
+
+At Phase 3 (cleanup), do NOT delete the worktree. Instead announce:
+```
+Feature selesai di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main.
+```
+</worktree_setup>
 
 <objective>
 You are the FD lead agent. Orchestrate the entire build pipeline using background subagents.
+
+**BAHASA:** User-facing output in Bahasa Indonesia (santai). Technical terms (file names, config keys, status codes) in English. Generated files (PLAN.md, SUMMARY.md, etc.) in English.
 
 Pipeline: Load Config -> Scan -> **Per-Phase Loop** (Plan -> Execute -> Verify -> Complete) -> Cleanup
 
@@ -75,7 +142,7 @@ Architecture split:
 Read these dynamically at runtime using $PLANNING_DIR:
 - $PLANNING_DIR/ROADMAP.md
 - $PLANNING_DIR/STATE.md
-- $PLANNING_DIR/config.json
+- .fd/config.json
 </context>
 
 <process>
@@ -88,12 +155,12 @@ Read these dynamically at runtime using $PLANNING_DIR:
 
    $PLANNING_DIR/ directory not found.
 
-   **To fix:** Run /fd:new-project first to initialize project structure.
+   **To fix:** Run /fd:init first to initialize project structure.
    ```
 
 2. Read config.json for settings:
    ```bash
-   cat $PLANNING_DIR/config.json
+   cat .fd/config.json
    ```
 
 3. Extract these settings into variables you will reference throughout:
@@ -130,25 +197,56 @@ Read these dynamically at runtime using $PLANNING_DIR:
    ```
    If exists, resume from recorded position instead of starting from scratch.
 
+   If no run-state.json exists, initialize it with metrics tracking:
+   ```json
+   {
+     "current_phase": 0,
+     "phase_step": "init",
+     "wave": 0,
+     "gap_iteration": 0,
+     "metrics": {
+       "run_started": "$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")"
+     }
+   }
+   ```
+
 5. Load planning config for commit behavior:
    ```bash
-   COMMIT_PLANNING_DOCS=$(cat $PLANNING_DIR/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+   COMMIT_PLANNING_DOCS=$(cat .fd/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
    git check-ignore -q $PLANNING_DIR 2>/dev/null && COMMIT_PLANNING_DOCS=false
    ```
 
-5b. **Codebase context strategy: just-in-time discovery (no pre-loading)**
+5b. **Codebase context strategy: structured map + just-in-time discovery**
 
-   Subagents have Grep, Glob, Read, and Bash tools. They discover codebase context on-demand by searching directly. No pre-loaded dumps.
+   **Primary:** If `.fd/codebase/` exists (created by `/fd:map-codebase` or `/fd:init` brownfield flow), subagents reference these 7 structured documents (STACK.md, INTEGRATIONS.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, CONCERNS.md) for codebase understanding. Pass `.fd/codebase/` path to subagents — they read relevant docs themselves.
 
-   **Optional:** If `aid.enabled` is `true` in config, run aid distillation as supplementary reference:
+   **Always available:** Subagents have Grep, Glob, Read, and Bash tools. They discover additional codebase context on-demand by searching directly. The structured map provides the foundation; just-in-time search fills gaps.
+
+   **Supplementary:** If `aid.enabled` is `true` in config, run aid distillation as additional reference:
    ```bash
-   mkdir -p $PLANNING_DIR/codebase
+   mkdir -p .fd/codebase
    aid "${aid.src_path:-.}" \
      --include "${aid.include}" \
      --exclude "${aid.exclude}" \
      ${aid.flags} \
      --summary-type off \
-     -o $PLANNING_DIR/codebase/aid-distilled.md
+     -o .fd/codebase/aid-distilled.md
+
+   # Full version with implementation bodies (for executors)
+   aid "${aid.src_path:-.}" \
+     --include "${aid.include}" \
+     --exclude "${aid.exclude}" \
+     ${aid.flags} --implementation 1 \
+     --summary-type off \
+     -o .fd/codebase/aid-full.md
+
+   # Truncate if too large (>10000 lines)
+   FULL_LINES=$(wc -l < .fd/codebase/aid-full.md 2>/dev/null || echo 0)
+   if [ "$FULL_LINES" -gt 10000 ]; then
+     head -10000 .fd/codebase/aid-full.md > .fd/codebase/aid-full.tmp
+     echo -e "\n<!-- TRUNCATED: ${FULL_LINES} total lines, showing first 10000 -->" >> .fd/codebase/aid-full.tmp
+     mv .fd/codebase/aid-full.tmp .fd/codebase/aid-full.md
+   fi
    ```
    If aid fails or not found, skip silently — it's not required.
 
@@ -200,14 +298,14 @@ ls -d $PLANNING_DIR/phases/*/ 2>/dev/null
 Check these files to classify each phase:
 - Has PLAN.md files? (planned)
 - Has SUMMARY.md files for each PLAN.md? (executed)
-- Has VERIFICATION.md? (verified)
-- VERIFICATION.md status field? (passed / gaps_found)
+- Has *-VERIFICATION.md files? (verified)
+- *-VERIFICATION.md status field? (passed / gaps_found)
 
 Classification rules:
 - **needs_planning**: Phase exists in ROADMAP but has no PLAN.md files in its directory
 - **needs_execution**: Has PLAN.md file(s) but at least one PLAN.md is missing a corresponding SUMMARY.md
-- **needs_verification**: All plans have SUMMARY.md but no VERIFICATION.md exists, OR VERIFICATION.md has `status: gaps_found`
-- **complete**: VERIFICATION.md exists with `status: passed`
+- **needs_verification**: All plans have SUMMARY.md but no *-VERIFICATION.md exists, OR *-VERIFICATION.md has `status: gaps_found`
+- **complete**: *-VERIFICATION.md exists with `status: passed`
 
 ### Step 1.4: Classify phase difficulty (if difficulty_aware enabled)
 
@@ -253,6 +351,7 @@ If ALL phases are `complete`, skip to Phase 3 (Cleanup & Completion) immediately
 phases_to_process = [phases with status != complete, ordered by phase number]
 
 For each phase in phases_to_process:
+  Record phase start timestamp
   Display phase header
   Run Step 2.A if needs_planning
   Run Step 2.B if has unexecuted plans
@@ -260,6 +359,8 @@ For each phase in phases_to_process:
   Run Step 2.D to complete and commit
   Update run-state.json cursor
 ```
+
+**Record metric:** At the start of each phase iteration, update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].started = $(date -u +"%Y-%m-%dT%H:%M:%SZ")`
 
 Display at start of each phase:
 ```
@@ -516,6 +617,8 @@ After revision loop completes (either passed or max iterations reached):
 Plans finalized for Phase {N} (revision {revision_count})
 ```
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].plan_check_revisions = revision_count`
+
 #### 2.A.6: Update STATE.md
 
 After planning completes for this phase, update STATE.md to reflect the phase is now planned.
@@ -569,6 +672,7 @@ Phase: {phase_name}
 Phase dir: $PLANNING_DIR/phases/{phase_dir}/
 Phase goal: {phase_goal}
 PLANNING_DIR: $PLANNING_DIR/
+WORKTREE: $WORKTREE_ABS — all file operations inside this directory.
 
 Read these files before starting:
 - Plan file (above)
@@ -632,6 +736,7 @@ RETRY: Execute plan {plan_id} (attempt {retry_count + 1})
 Plan file: $PLANNING_DIR/phases/{phase_dir}/{plan_filename}
 Phase dir: $PLANNING_DIR/phases/{phase_dir}/
 PLANNING_DIR: $PLANNING_DIR/
+WORKTREE: $WORKTREE_ABS — all file operations inside this directory.
 
 Previous attempt failed. Check git log for partial commits from prior attempt.
 If partial work exists, continue from where it left off.
@@ -660,6 +765,8 @@ Completed: {N}/{M} plans
 Errors: {E} plans (will be logged as gaps)
 ```
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].executor_retries = {total_retry_count}`, `metrics.phases[{phase}].plans_total = {M}`, `metrics.phases[{phase}].plans_executed = {N}`
+
 ---
 
 ### Step 2.C: Verify (if workflow.verifier enabled)
@@ -684,7 +791,7 @@ Read these files yourself:
 Use Grep/Glob/Read to explore the codebase directly for verification. Do NOT rely on pre-loaded dumps.
 
 Verify that all plans were executed correctly and the phase goal is met.
-Write VERIFICATION.md to the phase directory.
+Write {phase}-VERIFICATION.md to the phase directory.
 
 IMPORTANT: Your final response to the lead must be ONLY a single status line:
 'STATUS: passed' if all criteria met
@@ -745,7 +852,7 @@ Phase directory: $PLANNING_DIR/phases/{phase_dir}/
 PLANNING_DIR: $PLANNING_DIR/
 
 Read these files yourself:
-- Verification report: $PLANNING_DIR/phases/{phase_dir}/VERIFICATION.md (contains gaps to fix)
+- Verification report: $PLANNING_DIR/phases/{phase_dir}/{NN}-VERIFICATION.md (contains gaps to fix)
 - All existing PLAN.md files in $PLANNING_DIR/phases/{phase_dir}/
 - All existing SUMMARY.md files in $PLANNING_DIR/phases/{phase_dir}/
 
@@ -792,6 +899,8 @@ WARNING: Maximum gap closure iterations ({max_iterations}) reached.
 Manual intervention may be required.
 ```
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].gap_iterations = gap_iteration`
+
 ---
 
 ### Step 2.D: Complete Phase
@@ -803,6 +912,20 @@ For phases that passed verification (or skipped verification):
 1. Update ROADMAP.md: Mark phase as complete (checkbox ticked)
 2. Update STATE.md: Update phase status to `complete`, update current position
 3. Update REQUIREMENTS.md: Mark phase requirements as `Complete` (if REQUIREMENTS.md exists)
+4. Update STATE.md Performance Metrics section:
+```markdown
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: {sum of plans_executed across phases}
+- Total execution time: {formatted total duration}
+- First-try pass rate: {percentage} ({count}/{total} phases)
+
+**By Phase:**
+| Phase | Plans | Duration | Revisions | Gaps | Retries | 1st Try |
+|-------|-------|----------|-----------|------|---------|---------|
+| {phase} | {plans_executed} | {duration_min} min | {plan_check_revisions} | {gap_iterations} | {executor_retries} | {yes/no} |
+```
 
 #### 2.D.2: Commit phase completion
 
@@ -811,7 +934,7 @@ For phases that passed verification (or skipped verification):
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
 ```bash
-git add $PLANNING_DIR/ROADMAP.md $PLANNING_DIR/STATE.md $PLANNING_DIR/phases/{phase_dir}/VERIFICATION.md
+git add $PLANNING_DIR/ROADMAP.md $PLANNING_DIR/STATE.md $PLANNING_DIR/phases/{phase_dir}/*-VERIFICATION.md
 ```
 
 If REQUIREMENTS.md was updated:
@@ -827,6 +950,8 @@ git commit -m "docs({phase_name}): complete {phase_name} phase"
 
 #### 2.D.3: Update run-state.json cursor
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].completed = $(date -u +"%Y-%m-%dT%H:%M:%SZ")`, calculate `metrics.phases[{phase}].duration_min = (completed - started) in minutes`, and derive `metrics.phases[{phase}].first_try_pass = (gap_iterations == 0 AND executor_retries == 0 AND plan_check_revisions == 0)`.
+
 Write current position to `$PLANNING_DIR/run-state.json` for recovery:
 
 ```json
@@ -834,7 +959,23 @@ Write current position to `$PLANNING_DIR/run-state.json` for recovery:
   "current_phase": {N},
   "phase_step": "complete",
   "wave": 0,
-  "gap_iteration": 0
+  "gap_iteration": 0,
+  "metrics": {
+    "run_started": "2026-03-03T14:00:00Z",
+    "phases": {
+      "01-setup": {
+        "started": "...",
+        "completed": "...",
+        "duration_min": 14,
+        "plans_total": 3,
+        "plans_executed": 3,
+        "plan_check_revisions": 0,
+        "gap_iterations": 0,
+        "executor_retries": 0,
+        "first_try_pass": true
+      }
+    }
+  }
 }
 ```
 
@@ -856,6 +997,16 @@ Moving to next phase...
 
 ## Phase 3: Cleanup & Completion
 
+### Step 3.0: Aggregate pipeline metrics
+
+Read `$PLANNING_DIR/run-state.json` metrics and compute:
+
+1. **Total duration:** Sum of all `phases[*].duration_min`
+2. **First-try pass rate:** Count of phases where `first_try_pass == true` / total phases
+3. **Total rework:** Sum of `plan_check_revisions + gap_iterations + executor_retries` across all phases
+
+Store computed aggregates for STATE.md and completion banner.
+
 ### Step 3.1: Persist deviation memory (cross-session learning)
 
 After all execution is complete, extract deviations from all SUMMARY.md files across all phases:
@@ -869,9 +1020,9 @@ After all execution is complete, extract deviations from all SUMMARY.md files ac
 
 Accumulated patterns from past runs. Provided to executors to avoid repeating mistakes.
 
-| Pattern | Fix | Category | Source Task | Frequency | Last Seen |
-|---------|-----|----------|-------------|-----------|-----------|
-| {description of what went wrong} | {how it was resolved} | {rule category} | {originating task} | {count} | {date} |
+| Pattern | Fix | Category | Source Task | Files | Frequency | Last Seen |
+|---------|-----|----------|-------------|-------|-----------|-----------|
+| {description of what went wrong} | {how it was resolved} | {rule category} | {originating task} | {affected files} | {count} | {date} |
 ```
 
 3. If the file already exists, merge new patterns: increment frequency for duplicates, add new rows for novel patterns.
@@ -922,9 +1073,23 @@ Verification: All phases verified
 | 02-auth        | 4     | Verified   |
 | 03-content     | 3     | Verified   |
 
+## Performance
+
+| Phase | Plans | Duration | Revisions | Gaps | Retries | 1st Try |
+|-------|-------|----------|-----------|------|---------|---------|
+| {per-phase rows from metrics} |
+
+**Total:** {total_plans} plans in {total_duration} | First-try pass rate: {rate}%
+
+## Worktree
+
+Feature selesai di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main.
+
 ## Next Steps
 
 - /fd:run $FEATURE -- run again (will pick up any new unfinished work)
+- /fd:merge $FEATURE -- merge worktree branch ke main
 - Manual acceptance testing can be done by reviewing verification reports
 ```
 
@@ -943,15 +1108,29 @@ FD > RUN COMPLETE (with gaps)
 | 02-auth        | 4     | Gaps remaining    |
 | 03-content     | 3     | Verified          |
 
+## Performance
+
+| Phase | Plans | Duration | Revisions | Gaps | Retries | 1st Try |
+|-------|-------|----------|-----------|------|---------|---------|
+| {per-phase rows from metrics} |
+
+**Total:** {total_plans} plans in {total_duration} | First-try pass rate: {rate}%
+
 ## Unresolved Gaps
 
 **Phase 02-auth:**
 - {gap description from VERIFICATION.md}
 
+## Worktree
+
+Feature di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main setelah gaps resolved.
+
 ## Next Steps
 
 - /fd:run $FEATURE -- retry gap closure
 - /fd:discuss-phase 02-auth -- discuss approach for problematic phase
+- /fd:merge $FEATURE -- merge worktree branch ke main
 - Manual fix then /fd:run $FEATURE to re-verify
 ```
 
@@ -990,20 +1169,31 @@ Next wave
 
 ### State Recovery
 
-Lead writes cursor position to `$PLANNING_DIR/run-state.json` after each step:
+Lead writes cursor position and metrics to `$PLANNING_DIR/run-state.json` after each step:
 ```json
 {
   "current_phase": 3,
   "phase_step": "execute",
   "wave": 2,
-  "gap_iteration": 0
+  "gap_iteration": 0,
+  "metrics": {
+    "run_started": "2026-03-03T14:00:00Z",
+    "phases": {
+      "01-setup": {
+        "started": "...", "completed": "...", "duration_min": 14,
+        "plans_total": 3, "plans_executed": 3,
+        "plan_check_revisions": 0, "gap_iterations": 0,
+        "executor_retries": 0, "first_try_pass": true
+      }
+    }
+  }
 }
 ```
 
 Task status is derived from filesystem:
 - SUMMARY.md exists -> plan executed
 - VERIFICATION.md exists -> phase verified
-- No state file bloat -- just a cursor
+- Metrics accumulated per-phase for performance reporting
 
 </execution_architecture>
 
@@ -1016,7 +1206,7 @@ Task status is derived from filesystem:
    - $PLANNING_DIR/ROADMAP.md
    - $PLANNING_DIR/STATE.md
    - $PLANNING_DIR/REQUIREMENTS.md (only if updated)
-   - $PLANNING_DIR/phases/{phase_dir}/VERIFICATION.md
+   - $PLANNING_DIR/phases/{phase_dir}/*-VERIFICATION.md
 3. Commit message format: `docs({phase}): complete {phase-name} phase`
 
 **Orchestrator State Commits:** Done by the lead (you):
@@ -1155,18 +1345,19 @@ Phase 2: Per-Phase Pipeline (for each phase, sequential)
           +- Display phase complete
 
 Phase 3: Cleanup & Completion
+  - 3.0: Aggregate pipeline metrics (duration, first-try pass rate, total rework)
   - 3.1: Persist deviation memory
   - 3.2: Commit orchestrator changes
   - 3.3: Delete run-state.json
-  - 3.4: Display final status
+  - 3.4: Display final status (with performance table)
 ```
 
 </phase_flow_summary>
 
 <success_criteria>
 - [ ] Feature name argument parsed and validated
-- [ ] $PLANNING_DIR set to .planning/$FEATURE
-- [ ] Config loaded and validated from $PLANNING_DIR/config.json
+- [ ] $PLANNING_DIR set to .fd/planning/$FEATURE
+- [ ] Config loaded and validated from .fd/config.json
 - [ ] Phases classified by difficulty (if difficulty_aware)
 - [ ] **Per-phase pipeline**: each phase processed completely (plan->execute->verify) before next
 - [ ] **Background subagents**: all subagents use run_in_background=true
@@ -1188,5 +1379,9 @@ Phase 3: Cleanup & Completion
 - [ ] Individual file staging for all git commits (no broad adds)
 - [ ] Codebase context via just-in-time discovery (agents use Grep/Glob/Read)
 - [ ] Lead context stayed lean throughout (~10-15%)
+- [ ] Pipeline metrics recorded per phase (started, completed, duration, retries, revisions, gaps)
+- [ ] Metrics aggregated at completion (total duration, first-try pass rate, total rework)
+- [ ] Performance table displayed in completion banner
+- [ ] STATE.md Performance Metrics section updated with per-phase data
 - [ ] User informed of final status and next steps
 </success_criteria>

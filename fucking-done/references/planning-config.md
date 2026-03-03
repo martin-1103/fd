@@ -1,6 +1,6 @@
 <planning_config>
 
-Configuration options for `.planning/` directory behavior.
+Configuration options for `.fd/planning/` directory behavior.
 
 <config_schema>
 ```json
@@ -12,6 +12,13 @@ Configuration options for `.planning/` directory behavior.
   "branching_strategy": "none",
   "phase_branch_template": "fd/phase-{phase}-{slug}",
   "milestone_branch_template": "fd/{milestone}-{slug}"
+},
+"worktree": {
+  "enabled": true,
+  "base_path": ".claude/worktrees",
+  "feature_branch_template": "fd/feature-{slug}",
+  "fix_branch_template": "fd/fix-{slug}",
+  "auto_cleanup": false
 }
 ```
 
@@ -22,6 +29,11 @@ Configuration options for `.planning/` directory behavior.
 | `git.branching_strategy` | `"none"` | Git branching approach: `"none"`, `"phase"`, or `"milestone"` |
 | `git.phase_branch_template` | `"fd/phase-{phase}-{slug}"` | Branch template for phase strategy |
 | `git.milestone_branch_template` | `"fd/{milestone}-{slug}"` | Branch template for milestone strategy |
+| `worktree.enabled` | `true` | Whether /fd:run and /fd:fix create isolated worktrees |
+| `worktree.base_path` | `".claude/worktrees"` | Base directory for worktrees |
+| `worktree.feature_branch_template` | `"fd/feature-{slug}"` | Branch template for feature worktrees |
+| `worktree.fix_branch_template` | `"fd/fix-{slug}"` | Branch template for fix worktrees |
+| `worktree.auto_cleanup` | `false` | Whether to auto-remove worktree after merge |
 </config_schema>
 
 <commit_docs_behavior>
@@ -32,27 +44,27 @@ Configuration options for `.planning/` directory behavior.
 - Full history of planning decisions preserved
 
 **When `commit_docs: false`:**
-- Skip all `git add`/`git commit` for `.planning/` files
-- User must add `.planning/` to `.gitignore`
+- Skip all `git add`/`git commit` for `.fd/planning/` files
+- User must add `.fd/planning/` to `.gitignore`
 - Useful for: OSS contributions, client projects, keeping planning private
 
 **Checking the config:**
 
 ```bash
 # Check config.json first
-COMMIT_DOCS=$(cat .planning/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+COMMIT_DOCS=$(cat .fd/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
 
 # Auto-detect gitignored (overrides config)
-git check-ignore -q .planning 2>/dev/null && COMMIT_DOCS=false
+git check-ignore -q .fd/planning 2>/dev/null && COMMIT_DOCS=false
 ```
 
-**Auto-detection:** If `.planning/` is gitignored, `commit_docs` is automatically `false` regardless of config.json. This prevents git errors when users have `.planning/` in `.gitignore`.
+**Auto-detection:** If `.fd/planning/` is gitignored, `commit_docs` is automatically `false` regardless of config.json. This prevents git errors when users have `.fd/planning/` in `.gitignore`.
 
 **Conditional git operations:**
 
 ```bash
 if [ "$COMMIT_DOCS" = "true" ]; then
-  git add .planning/STATE.md
+  git add .fd/planning/STATE.md
   git commit -m "docs: update state"
 fi
 ```
@@ -63,12 +75,12 @@ fi
 
 **When `search_gitignored: false` (default):**
 - Standard rg behavior (respects .gitignore)
-- Direct path searches work: `rg "pattern" .planning/` finds files
-- Broad searches skip gitignored: `rg "pattern"` skips `.planning/`
+- Direct path searches work: `rg "pattern" .fd/planning/` finds files
+- Broad searches skip gitignored: `rg "pattern"` skips `.fd/planning/`
 
 **When `search_gitignored: true`:**
-- Add `--no-ignore` to broad rg searches that should include `.planning/`
-- Only needed when searching entire repo and expecting `.planning/` matches
+- Add `--no-ignore` to broad rg searches that should include `.fd/planning/`
+- Only needed when searching entire repo and expecting `.fd/planning/` matches
 
 **Note:** Most FD operations use direct file reads or explicit paths, which work regardless of gitignore status.
 
@@ -88,12 +100,12 @@ To use uncommitted mode:
 
 2. **Add to .gitignore:**
    ```
-   .planning/
+   .fd/planning/
    ```
 
-3. **Existing tracked files:** If `.planning/` was previously tracked:
+3. **Existing tracked files:** If `.fd/planning/` was previously tracked:
    ```bash
-   git rm -r --cached .planning/
+   git rm -r --cached .fd/planning/
    git commit -m "chore: stop tracking planning docs"
    ```
 
@@ -138,13 +150,13 @@ To use uncommitted mode:
 
 ```bash
 # Get branching strategy (default: none)
-BRANCHING_STRATEGY=$(cat .planning/config.json 2>/dev/null | grep -o '"branching_strategy"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:.*"\([^"]*\)"/\1/' || echo "none")
+BRANCHING_STRATEGY=$(cat .fd/config.json 2>/dev/null | grep -o '"branching_strategy"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:.*"\([^"]*\)"/\1/' || echo "none")
 
 # Get phase branch template
-PHASE_BRANCH_TEMPLATE=$(cat .planning/config.json 2>/dev/null | grep -o '"phase_branch_template"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:.*"\([^"]*\)"/\1/' || echo "fd/phase-{phase}-{slug}")
+PHASE_BRANCH_TEMPLATE=$(cat .fd/config.json 2>/dev/null | grep -o '"phase_branch_template"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:.*"\([^"]*\)"/\1/' || echo "fd/phase-{phase}-{slug}")
 
 # Get milestone branch template
-MILESTONE_BRANCH_TEMPLATE=$(cat .planning/config.json 2>/dev/null | grep -o '"milestone_branch_template"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:.*"\([^"]*\)"/\1/' || echo "fd/{milestone}-{slug}")
+MILESTONE_BRANCH_TEMPLATE=$(cat .fd/config.json 2>/dev/null | grep -o '"milestone_branch_template"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:.*"\([^"]*\)"/\1/' || echo "fd/{milestone}-{slug}")
 ```
 
 **Branch creation:**
@@ -188,7 +200,7 @@ Squash merge is recommended — keeps main branch history clean while preserving
 
 <agent_team_config>
 
-Agent Team configuration in `.planning/config.json`:
+Agent Team configuration in `.fd/config.json`:
 
 ```json
 "agent_team": {
@@ -303,7 +315,7 @@ AI Distiller (aid) integration configuration:
 
 **What aid generates:**
 
-Two files in `.planning/codebase/`:
+Two files in `.fd/codebase/`:
 
 | File | Content | Used by | Size |
 |------|---------|---------|------|

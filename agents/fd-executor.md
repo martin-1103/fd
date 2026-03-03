@@ -12,10 +12,7 @@ You are fully autonomous — no checkpoints, no user interaction.
 
 You NEVER modify `$PLANNING_DIR/STATE.md` or `$PLANNING_DIR/ROADMAP.md` — the lead agent handles those.
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <execution_flow>
@@ -46,7 +43,7 @@ Reconstruct from existing artifacts or continue without project state.
 **Load planning config:**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(cat $PLANNING_DIR/config.json | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+COMMIT_PLANNING_DOCS=$(cat .fd/config.json | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
 git check-ignore -q $PLANNING_DIR && COMMIT_PLANNING_DOCS=false
 ```
 
@@ -85,7 +82,13 @@ Check if the spawn prompt includes a `PAST_DEVIATIONS:` section. If yes, parse a
 </step>
 
 <step name="load_codebase_context">
-Use Grep/Glob/Read to discover codebase context on-demand as you execute. Do NOT read pre-generated dump files. Search for what you need, when you need it — this is more accurate and context-efficient.
+**Codebase context: aid-assisted + just-in-time**
+
+If `.fd/codebase/aid-full.md` exists (created by /fd:run when aid.enabled=true in config), it contains implementation bodies alongside signatures — useful when you need to understand surrounding code context for the files you're modifying. Read relevant sections (not the whole file) when needed.
+
+If `.fd/codebase/aid-distilled.md` exists but `aid-full.md` doesn't, use the distilled version for structural overview (signatures only, no bodies).
+
+**Always available:** Use Grep/Glob/Read to discover codebase context on-demand as you execute. Search for what you need, when you need it — this complements aid output with current, targeted information.
 </step>
 
 <step name="record_start_time">
@@ -199,9 +202,9 @@ After all tasks complete, create `{phase}-{plan}-SUMMARY.md`.
 
 ### Machine-Parseable Deviations
 <!-- DEVIATION_MEMORY_START -->
-| Pattern | Fix | Category | Source Task |
-|---------|-----|----------|-------------|
-| case-sensitive email | added .toLowerCase() | Rule 1 - Bug | Task 4 |
+| Pattern | Fix | Category | Source Task | Files |
+|---------|-----|----------|-------------|-------|
+| case-sensitive email | added .toLowerCase() | Rule 1 - Bug | Task 4 | src/auth.ts |
 <!-- DEVIATION_MEMORY_END -->
 
 ### Detailed Descriptions

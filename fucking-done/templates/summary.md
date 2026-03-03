@@ -1,6 +1,6 @@
 # Summary Template
 
-Template for `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md` - phase completion documentation.
+Template for `.fd/planning/phases/XX-name/{phase}-{plan}-SUMMARY.md` - phase completion documentation.
 
 ---
 
@@ -79,6 +79,7 @@ Each task was committed atomically:
 _Note: TDD tasks may have multiple commits (test → feat → refactor)_
 
 ## Files Created/Modified
+<!-- FORMAT: - `path/to/file` - description (one per line, backtick-wrapped path required) -->
 - `path/to/file.ts` - What it does
 - `path/to/another.ts` - What it does
 
@@ -93,8 +94,8 @@ _Note: TDD tasks may have multiple commits (test → feat → refactor)_
 
 ### Deviation Memory
 <!-- DEVIATION_MEMORY_START -->
-| pattern | fix | category | task | files |
-|---------|-----|----------|------|-------|
+| Pattern | Fix | Category | Source Task | Files |
+|---------|-----|----------|-------------|-------|
 | [pattern description] | [fix applied] | Rule N - Type | Task N | [files] |
 <!-- DEVIATION_MEMORY_END -->
 
@@ -114,18 +115,6 @@ _Note: TDD tasks may have multiple commits (test → feat → refactor)_
 
 **Total deviations:** [N] auto-fixed ([breakdown by rule])
 **Impact on plan:** [Brief assessment - e.g., "All auto-fixes necessary for correctness/security. No scope creep."]
-
-## Handoff Quality
-
-Was the plan clear enough to execute?
-- **Ambiguities encountered:** [list any parts where interpretation was needed]
-- **Missing context:** [anything the plan should have specified but didn't]
-- **Suggested plan improvements:** [how the plan could be better next time]
-
-## Issues Encountered
-[Problems and how they were resolved, or "None"]
-
-[Note: "Deviations from Plan" documents unplanned work that was handled automatically via deviation rules. "Issues Encountered" documents problems during planned work that required problem-solving.]
 
 ## User Setup Required
 
@@ -246,16 +235,6 @@ The one-liner should tell someone what actually shipped.
 
 **Total deviations:** 2 auto-fixed (1 missing critical, 1 blocking)
 **Impact on plan:** Both auto-fixes essential for security and functionality. No scope creep.
-
-## Handoff Quality
-
-Was the plan clear enough to execute?
-- **Ambiguities encountered:** Password hashing not specified in auth task
-- **Missing context:** jose library not listed in tech stack requirements
-- **Suggested plan improvements:** Include security requirements (hashing, validation) explicitly in auth plans
-
-## Issues Encountered
-- jsonwebtoken CommonJS import failed in Edge runtime - switched to jose (planned library change, worked as expected)
 
 ## Next Phase Readiness
 - Auth foundation complete, ready for feature development

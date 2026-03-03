@@ -137,6 +137,41 @@ Recommend: re-run /fd:analyze with corrected context.
 ```
 Ask user whether to continue planning with corrections or re-analyze.
 
+### Staleness Detection
+
+Check time gap between analysis and planning:
+
+```bash
+# Read date from bug report frontmatter
+ANALYSIS_DATE=$(grep '^date:' .fd/bugs/${NN}-*.md | head -1 | awk '{print $2}')
+CURRENT_DATE=$(date +%Y-%m-%d)
+
+# Calculate days since analysis
+DAYS_OLD=$(( ($(date -d "$CURRENT_DATE" +%s) - $(date -d "$ANALYSIS_DATE" +%s)) / 86400 ))
+```
+
+- If > 0 days: warn "Analysis sudah {N} hari. Code mungkin sudah berubah."
+
+Check git changes since analysis:
+
+```bash
+# Files referenced in bug report — extract file paths
+REFERENCED_FILES=$(grep -oE '[a-zA-Z0-9_/.-]+\.(ts|tsx|js|jsx|py|go|rs):[0-9]+' .fd/bugs/${NN}-*.md | cut -d: -f1 | sort -u)
+
+# Check if any referenced files changed since analysis date
+CHANGED_FILES=$(git log --since="$ANALYSIS_DATE" --name-only --pretty=format: -- $REFERENCED_FILES 2>/dev/null | sort -u | grep -v '^$')
+```
+
+If any referenced files changed since analysis:
+```
+⚠️ STALENESS WARNING: File berikut berubah sejak analisis ({ANALYSIS_DATE}):
+{list of changed files}
+
+Recommend: re-run /fd:analyze atau lanjut dengan extra caution.
+```
+
+Flag as STALE in verification status if changes found.
+
 ---
 
 ## STEP 3 — Understand Codebase Patterns
@@ -205,6 +240,22 @@ Ask: "After my fix, does the original faulty logic still exist but get hidden?"
 - NO → root_cause
 
 **ALWAYS prefer root_cause.** Only use band_aid if root_cause is genuinely impossible (not just harder).
+
+### Enforcement Rules
+
+If fix is classified as `band_aid`:
+1. MUST document why root_cause is genuinely impossible (not just harder)
+2. MUST describe what the ideal root_cause fix would look like
+3. MUST assess long-term risk of keeping the band_aid
+4. MUST get explicit user confirmation before proceeding
+
+If fix is classified as `root_cause` but plan includes ANY of these patterns:
+- Adding null/undefined check → RE-CLASSIFY as band_aid
+- Adding try-catch around existing code → RE-CLASSIFY as band_aid
+- Adding default/fallback value → RE-CLASSIFY as band_aid
+- Adding retry logic → RE-CLASSIFY as band_aid
+
+These patterns are band_aid BY DEFINITION regardless of how they're labeled.
 
 ---
 
@@ -401,4 +452,5 @@ Tip: /clear dulu kalau context udah berat
 | "This is too risky to fix properly" | Risk is not an excuse for band-aids |
 | "Rewrite the whole module" | Minimum necessary change. Surgical. |
 | "Add a feature flag" | That's mitigation, label it honestly |
+| "Classified as root_cause but adds null check" | That's a band_aid. Re-classify. |
 </rules>

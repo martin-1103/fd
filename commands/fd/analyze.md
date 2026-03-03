@@ -73,6 +73,21 @@ Announce immediately:
 Mulai investigasi...
 ```
 
+### Error Normalization
+
+For stack traces and error logs, normalize before investigation:
+
+1. **Strip dynamic tokens:** UUIDs, timestamps, hex IDs, IP addresses, memory addresses → `<TOKEN>`
+2. **Extract error pattern:** `{ErrorClass}: {normalized message}`
+3. **Generate pattern signature** for deduplication: `{ErrorClass}:{key_word}:{origin_function}`
+
+Example:
+- Raw: `TypeError: Cannot read property 'userId' of undefined at AuthService.validate (/app/src/auth.ts:45:12) [2024-01-15T10:30:00Z]`
+- Normalized: `TypeError: Cannot read property '<TOKEN>' of undefined at AuthService.validate (auth.ts:<TOKEN>)`
+- Pattern: `TypeError:property_of_undefined:AuthService.validate`
+
+Store normalized form and pattern ID for use in report output.
+
 If `$ARGUMENTS` is empty, ask user:
 ```
 Kasih gw salah satu (atau kombinasi) dari ini:
@@ -341,6 +356,10 @@ Recommended: [root_cause approach]
 
 ### Secondary Risks (if found)
 [Other fragile logic or hidden bugs discovered]
+
+### Error Pattern
+Normalized: {normalized error message}
+Pattern ID: {pattern signature}
 ```
 
 ---
@@ -379,6 +398,7 @@ scope: [module/feature affected]
 root-cause: [one-line summary]
 cross-layer: true|false
 external-api: none|{provider}
+error-pattern: "{pattern signature}"
 ---
 
 ## Bug Analysis Report

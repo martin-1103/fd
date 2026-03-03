@@ -11,23 +11,27 @@ FD is a collection of Claude Code slash commands for two workflows:
 
 ## Build Workflow
 
-For building new features. Uses `.planning/` directory.
+For building new features. Uses `.fd/` for project-level and `.fd/planning/<feature>/` for feature-level.
 
 ```
-/fd:new-project → /fd:discuss-phase → /fd:run
+/fd:init → /fd:feature → /fd:discuss-phase → /fd:run → /fd:merge
 ```
 
 | Command | Purpose | Input | Output |
 |---------|---------|-------|--------|
-| `/fd:new-project <name>` | Initialize project with deep context gathering | Feature name (e.g. `auth-system`) | `.planning/<name>/PROJECT.md` |
-| `/fd:discuss-phase <feature> <phase>` | Gather phase context through adaptive Q&A | Feature + phase name | Phase context for planning |
+| `/fd:init` | Initialize project with deep context gathering | (none) | `.fd/PROJECT.md`, `.fd/config.json` |
+| `/fd:map-codebase` | Analyze existing codebase with parallel agents | (none) | `.fd/codebase/` (7 docs) |
+| `/fd:feature <name>` | Plan a feature (research, requirements, roadmap) | Feature name (e.g. `auth-system`) | `.fd/planning/<name>/` |
+| `/fd:discuss-phase <feature> <phase>` | Gather phase context through adaptive Q&A | Feature + phase number | Phase context for planning |
 | `/fd:run <name>` | Plan, execute, and verify all phases | Feature name | Built feature with verification |
+| `/fd:merge [slug]` | Merge FD worktree back to main | Branch slug (optional) | Merged code, cleaned worktree |
 
 ### Example
 
 ```
-/fd:new-project chat-widget
-/fd:discuss-phase chat-widget phase-1-ui
+/fd:init
+/fd:feature chat-widget
+/fd:discuss-phase chat-widget 1
 /fd:run chat-widget
 ```
 
@@ -38,7 +42,7 @@ For building new features. Uses `.planning/` directory.
 For debugging and fixing bugs. Uses `.fd/` directory.
 
 ```
-/fd:analyze → /fd:planner → /fd:fix
+/fd:analyze → /fd:planner → /fd:fix → /fd:merge
 ```
 
 | Command | Purpose | Input | Output |
@@ -46,6 +50,7 @@ For debugging and fixing bugs. Uses `.fd/` directory.
 | `/fd:analyze <input>` | Root cause investigation | Error log, screenshot, URL, file path, or description | `.fd/bugs/{NN}-{slug}.md` |
 | `/fd:planner <NN>` | Create evidence-driven fix plan | Bug number from analyze | `.fd/plans/{NN}-{slug}.md` |
 | `/fd:fix <NN>` | Execute fix with review loop | Plan number from planner | `.fd/fixes/{NN}-{slug}.md` |
+| `/fd:merge [slug]` | Merge FD worktree back to main | Branch slug (optional) | Merged code, cleaned worktree |
 
 ### Example
 
@@ -85,6 +90,23 @@ For debugging and fixing bugs. Uses `.fd/` directory.
 
 ```
 .fd/
+├── PROJECT.md          ← /fd:init (project-level)
+├── config.json         ← /fd:init (workflow preferences)
+├── codebase/           ← /fd:map-codebase or /fd:init brownfield
+│   ├── STACK.md
+│   ├── INTEGRATIONS.md
+│   ├── ARCHITECTURE.md
+│   ├── STRUCTURE.md
+│   ├── CONVENTIONS.md
+│   ├── TESTING.md
+│   └── CONCERNS.md
+├── planning/
+│   └── <feature>/      ← /fd:feature (per-feature)
+│       ├── REQUIREMENTS.md
+│       ├── ROADMAP.md
+│       ├── STATE.md
+│       ├── research/
+│       └── phases/
 ├── bugs/
 │   ├── 01-auth-null-token.md
 │   └── 02-sftp-race-condition.md
@@ -105,3 +127,4 @@ For debugging and fixing bugs. Uses `.fd/` directory.
 - Bug numbers auto-increment — no need to track manually
 - Fix workflow is strictly sequential: analyze → planner → fix
 - Build workflow can re-run phases independently
+- Both build and fix workflows create worktrees — use `/fd:merge` to merge back
