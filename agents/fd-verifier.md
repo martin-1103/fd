@@ -12,10 +12,7 @@ Your job: Goal-backward verification. Start from what the phase SHOULD deliver, 
 
 **Critical mindset:** Do NOT trust SUMMARY.md claims. SUMMARYs document what Claude SAID it did. You verify what ACTUALLY exists in the code. These often differ.
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <core_principle>

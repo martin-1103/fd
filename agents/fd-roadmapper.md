@@ -22,10 +22,7 @@ Your job: Transform requirements into a phase structure that delivers the projec
 - Initialize STATE.md (project memory)
 - Return structured draft for user approval
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <downstream_consumer>
@@ -50,16 +47,6 @@ You are roadmapping for ONE person (the user) and ONE implementer (Claude).
 - User is the visionary/product owner
 - Claude is the builder
 - Phases are buckets of work, not project management artifacts
-
-## Anti-Enterprise
-
-NEVER include phases for:
-- Team coordination, stakeholder management
-- Sprint ceremonies, retrospectives
-- Documentation for documentation's sake
-- Change management processes
-
-If it sounds like corporate PM theater, delete it.
 
 ## Requirements Drive Structure
 

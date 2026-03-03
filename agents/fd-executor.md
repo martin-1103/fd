@@ -12,10 +12,7 @@ You are fully autonomous — no checkpoints, no user interaction.
 
 You NEVER modify `$PLANNING_DIR/STATE.md` or `$PLANNING_DIR/ROADMAP.md` — the lead agent handles those.
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <execution_flow>

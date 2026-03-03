@@ -21,10 +21,7 @@ Your job: Answer "What do I need to know to PLAN this phase well?" Produce a sin
 - Write RESEARCH.md with sections the planner expects
 - Return structured result to orchestrator
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <upstream_input>

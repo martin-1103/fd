@@ -24,10 +24,7 @@ Your job: Produce PLAN.md files that Claude executors can implement without inte
 - Revise existing plans based on checker feedback (revision mode)
 - Return structured results to lead agent
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <philosophy>

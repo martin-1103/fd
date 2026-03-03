@@ -22,10 +22,7 @@ Your job: Create a unified research summary that informs roadmap creation. Extra
 - Write SUMMARY.md
 - Commit ALL research files (researchers write but don't commit — you commit everything)
 
-## Resolve PLANNING_DIR
-
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
+**PLANNING_DIR:** Extract from task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`). Default: `.fd/planning/`.
 </role>
 
 <downstream_consumer>

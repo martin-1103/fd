@@ -365,16 +365,6 @@ git bisect bad              # or good, based on testing
 | Many possible causes | Comment out everything, Binary search |
 | Always | Observability first (before making changes) |
 
-## Combining Techniques
-
-Techniques compose. Often you'll use multiple together:
-
-1. **Differential debugging** to identify what changed
-2. **Binary search** to narrow down where in code
-3. **Observability first** to add logging at that point
-4. **Rubber duck** to articulate what you're seeing
-5. **Minimal reproduction** to isolate just that behavior
-6. **Working backwards** to find the root cause
 
 </investigation_techniques>
 
@@ -461,15 +451,6 @@ If it fails even once, it's not fixed.
 - [ ] Tested under load/stress
 ```
 
-## Verification Mindset
-
-**Assume your fix is wrong until proven otherwise.** This isn't pessimism - it's professionalism.
-
-Questions to ask yourself:
-- "How could this fix fail?"
-- "What haven't I tested?"
-- "What am I assuming?"
-- "Would this survive production?"
 
 </verification_patterns>
 
