@@ -1,0 +1,335 @@
+# FD (Fucking Done) — Installation Guide
+
+Multi-agent project management framework untuk Claude Code. Dua workflow utama: **Build** (bikin fitur baru) dan **Fix** (debug & fix bug).
+
+## Struktur File
+
+```
+~/.claude/
+├── commands/fd/              ← Slash commands (user-facing)
+│   ├── README.md
+│   ├── analyze.md
+│   ├── discuss-phase.md
+│   ├── fix.md
+│   ├── new-project.md
+│   ├── planner.md
+│   └── run.md
+├── agents/                   ← Background worker agents
+│   ├── fd-executor.md
+│   ├── fd-phase-researcher.md
+│   ├── fd-plan-checker.md
+│   ├── fd-planner.md
+│   ├── fd-project-researcher.md
+│   ├── fd-research-synthesizer.md
+│   ├── fd-roadmapper.md
+│   └── fd-verifier.md
+└── fucking-done/             ← Core system (templates, references, workflows)
+    ├── references/           ← Configuration & policy docs
+    ├── templates/            ← File templates for project artifacts
+    └── workflows/            ← Workflow definitions
+```
+
+## Cara Install
+
+### 1. Copy semua file ke `~/.claude/`
+
+```bash
+# Core system
+cp -r fucking-done/ ~/.claude/fucking-done/
+
+# Commands
+mkdir -p ~/.claude/commands/
+cp -r commands/fd/ ~/.claude/commands/fd/
+
+# Agents
+mkdir -p ~/.claude/agents/
+cp agents/fd-*.md ~/.claude/agents/
+```
+
+### 2. Verify installation
+
+```bash
+# Pastikan semua file ada
+ls ~/.claude/commands/fd/
+ls ~/.claude/agents/fd-*.md
+ls ~/.claude/fucking-done/
+```
+
+### 3. Restart Claude Code
+
+Setelah copy, restart Claude Code supaya commands dan agents ke-detect.
+
+## Path yang Perlu Diperhatikan
+
+File-file berikut mengandung **hardcoded absolute path** ke `/root/.claude/fucking-done/`:
+
+| File | Tipe |
+|------|------|
+| `agents/fd-executor.md` | Agent |
+| `agents/fd-planner.md` | Agent |
+| `agents/fd-research-synthesizer.md` | Agent |
+| `agents/fd-roadmapper.md` | Agent |
+| `commands/fd/discuss-phase.md` | Command |
+| `commands/fd/new-project.md` | Command |
+| `commands/fd/run.md` | Command |
+| `fucking-done/templates/phase-prompt.md` | Template |
+| `fucking-done/templates/codebase/structure.md` | Template |
+| `fucking-done/references/verification-patterns.md` | Reference |
+
+**Kalau home directory kamu bukan `/root/`**, kamu perlu find-and-replace path ini:
+
+```bash
+# Contoh: ganti /root/ ke /home/username/
+find ~/.claude/commands/fd/ ~/.claude/agents/ ~/.claude/fucking-done/ \
+  -name "*.md" -exec sed -i 's|/root/.claude/fucking-done|/home/USERNAME/.claude/fucking-done|g' {} +
+```
+
+Ganti `USERNAME` dengan username kamu.
+
+## Cara Pakai
+
+### Build Workflow — Bikin fitur baru
+
+```
+/fd:new-project → /fd:discuss-phase → /fd:run
+```
+
+| Command | Fungsi | Input | Output |
+|---------|--------|-------|--------|
+| `/fd:new-project <name>` | Init project, deep context gathering | Nama fitur | `.planning/<name>/PROJECT.md` |
+| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase name | Phase context |
+| `/fd:run <name>` | Plan, execute, verify semua phase | Nama fitur | Built feature + verification |
+
+**Contoh:**
+
+```
+/fd:new-project chat-widget
+/fd:discuss-phase chat-widget phase-1-ui
+/fd:run chat-widget
+```
+
+### Fix Workflow — Debug & fix bug
+
+```
+/fd:analyze → /fd:planner → /fd:fix
+```
+
+| Command | Fungsi | Input | Output |
+|---------|--------|-------|--------|
+| `/fd:analyze <input>` | Root cause investigation | Error log, screenshot, URL, file path, atau deskripsi | `.fd/bugs/{NN}-{slug}.md` |
+| `/fd:planner <NN>` | Buat fix plan dari evidence | Bug number | `.fd/plans/{NN}-{slug}.md` |
+| `/fd:fix <NN>` | Execute fix + review loop | Plan number | `.fd/fixes/{NN}-{slug}.md` |
+
+**Contoh:**
+
+```
+/fd:analyze "TypeError: Cannot read property 'x' of undefined"
+/fd:planner 01
+/fd:fix 01
+```
+
+## Workflow Diagram
+
+### Build Workflow
+
+```
+  /fd:new-project         /fd:discuss-phase          /fd:run
+  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐
+  │ Research     │        │ Adaptive Q&A     │      │ For each phase:     │
+  │ domain &    │──────▶ │ per phase        │────▶│  1. Research        │
+  │ create      │        │ (gather context) │      │  2. Plan            │
+  │ PROJECT.md  │        └──────────────────┘      │  3. Check plan      │
+  └─────────────┘                                   │  4. Execute         │
+                                                    │  5. Verify          │
+                                                    └─────────────────────┘
+```
+
+### Fix Workflow
+
+```
+  /fd:analyze              /fd:planner                /fd:fix
+  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐
+  │ Investigate  │        │ Verify claims    │      │ Execute plan steps  │
+  │ root cause  │──────▶ │ via ast-grep     │────▶│ with sonnet agents  │
+  │ multi-input │        │ Detect band-aids │      │ Review with opus    │
+  │ (log, URL,  │        │ Produce fix plan │      │ Loop until 7/7 pass │
+  │  screenshot)│        └──────────────────┘      │ Save fix report     │
+  └─────────────┘                                   └─────────────────────┘
+```
+
+## Dependencies: MCP Servers & Tools
+
+FD butuh beberapa MCP servers dan built-in tools. **Tanpa ini, beberapa fitur tidak jalan.**
+
+### MCP Servers (harus di-setup di Claude Code)
+
+| MCP Server | Dipakai oleh | Fungsi |
+|------------|-------------|--------|
+| **Context7** (`mcp__context7__*`) | `fd-planner`, `fd-phase-researcher`, `fd-project-researcher`, `/fd:analyze` | Query dokumentasi library/framework yang up-to-date |
+| **Playwright** (`mcp__plugin_playwright_*`) | `/fd:analyze` | Navigate URL, ambil screenshot, console errors, network requests (untuk debug web apps) |
+| **Tavily** (`mcp__tavily__*`) | `/fd:analyze` | Web search & content extraction untuk research error/bug |
+| **Exa** (`mcp__exa__*`) | `/fd:analyze` | Code-focused search, cari docs & code examples |
+
+### Built-in Claude Code Tools
+
+| Tool | Dipakai oleh | Fungsi |
+|------|-------------|--------|
+| `WebSearch` | `fd-phase-researcher`, `fd-project-researcher`, `/fd:analyze` | General web search |
+| `WebFetch` | `fd-planner`, `fd-phase-researcher`, `fd-project-researcher`, `/fd:analyze` | Fetch & parse web page content |
+
+### Mana yang wajib?
+
+| Skenario | MCP yang dibutuhkan |
+|----------|-------------------|
+| Build workflow (`/fd:new-project`, `/fd:run`) | **Context7** (strongly recommended) |
+| Fix workflow — code-only bugs | Tidak ada (semua pakai built-in tools) |
+| Fix workflow — web app bugs (URL input) | **Playwright** |
+| Fix workflow — deep research | **Tavily** dan/atau **Exa** (optional, WebSearch sebagai fallback) |
+
+### CLI Tools (harus terinstall di system)
+
+#### 1. ast-grep (WAJIB untuk Fix workflow)
+
+Semantic code search — cari struct, function, callers berdasarkan AST. Lebih akurat dari text grep.
+
+Dipakai oleh: `fd-verifier`, `fd-planner`, `fd-phase-researcher`, `/fd:analyze`, `/fd:planner`
+
+```bash
+# Via npm (paling gampang)
+npm i -g @ast-grep/cli
+
+# Via cargo (Rust)
+cargo install ast-grep --locked
+
+# Via Homebrew (macOS)
+brew install ast-grep
+
+# Via pip
+pip install ast-grep-cli
+```
+
+Repo: https://github.com/ast-grep/ast-grep
+
+#### 2. aid — AI Distiller (OPTIONAL)
+
+Extract code structure/API surface untuk context compression. Default disabled (`aid.enabled: false` di config). Skip otomatis kalau ga terinstall.
+
+Dipakai oleh: `/fd:run`, `/fd:new-project`
+
+```bash
+# Download binary dari GitHub releases
+# https://github.com/janreges/ai-distiller/releases
+
+# Linux x86_64
+curl -L https://github.com/janreges/ai-distiller/releases/latest/download/aid-linux-amd64 -o ~/.local/bin/aid
+chmod +x ~/.local/bin/aid
+```
+
+Repo: https://github.com/janreges/ai-distiller
+
+#### 3. rg — ripgrep (WAJIB)
+
+Fast text search. Fallback dari ast-grep. Dipakai hampir semua agent & command.
+
+```bash
+# Ubuntu/Debian
+apt install ripgrep
+
+# macOS
+brew install ripgrep
+
+# Cargo
+cargo install ripgrep
+```
+
+Repo: https://github.com/BurntSushi/ripgrep
+
+### MCP Servers (setup di Claude Code)
+
+MCP servers jalan via `npx` — ga perlu install manual, cukup config di settings.
+
+Tambahkan di `~/.claude/settings.json` atau project-level `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-playwright"]
+    },
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp"],
+      "env": {
+        "TAVILY_API_KEY": "tvly-YOUR_API_KEY"
+      }
+    },
+    "exa": {
+      "command": "npx",
+      "args": ["-y", "exa-mcp-server"],
+      "env": {
+        "EXA_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+#### Detail per MCP server
+
+| Server | npm Package | API Key? | Dapet dari mana | Repo |
+|--------|------------|----------|-----------------|------|
+| **Context7** | `@upstash/context7-mcp` | Tidak perlu | — | https://github.com/nichochar/context7 |
+| **Playwright** | `@anthropic/mcp-playwright` | Tidak perlu | — | https://github.com/anthropics/mcp-playwright |
+| **Tavily** | `tavily-mcp` | Ya (`TAVILY_API_KEY`) | https://app.tavily.com/home → sign up → API Keys | https://github.com/tavily-ai/tavily-mcp |
+| **Exa** | `exa-mcp-server` | Ya (`EXA_API_KEY`) | https://dashboard.exa.ai → sign up → API Keys | https://github.com/exa-labs/exa-mcp-server |
+
+> **Prerequisite:** Node.js >= 18 harus terinstall supaya `npx` jalan.
+>
+> **Tavily** punya free tier (1000 searches/month). **Exa** punya free tier (1000 searches/month).
+
+## Agent Reference
+
+| Agent | Fungsi | Dipanggil oleh |
+|-------|--------|----------------|
+| `fd-project-researcher` | Research domain ecosystem | `/fd:new-project` |
+| `fd-research-synthesizer` | Synthesize research outputs | `/fd:new-project` |
+| `fd-roadmapper` | Buat roadmap dari PROJECT.md | `/fd:new-project` |
+| `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
+| `fd-planner` | Buat execution plan per phase | `/fd:run` |
+| `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |
+| `fd-executor` | Execute plan dengan atomic commits | `/fd:run` |
+| `fd-verifier` | Verify phase goal tercapai | `/fd:run` |
+
+## Troubleshooting
+
+### Commands tidak muncul
+
+- Pastikan file ada di `~/.claude/commands/fd/`
+- Restart Claude Code
+- Cek file permission: `chmod 644 ~/.claude/commands/fd/*.md`
+
+### Agent not found
+
+- Pastikan file ada di `~/.claude/agents/`
+- Nama file harus exact match: `fd-executor.md`, bukan `fd_executor.md`
+
+### Path error / file not found saat runtime
+
+- Kemungkinan besar hardcoded path issue
+- Cek apakah `/root/.claude/fucking-done/` exist
+- Kalau bukan root user, jalankan sed replace di section "Path yang Perlu Diperhatikan"
+
+### Context terlalu besar
+
+- Jalankan `/clear` di antara commands
+- Setiap command baca dari filesystem, jadi aman across sessions
+
+### Bug number conflict
+
+- Bug numbers auto-increment di `.fd/bugs/`
+- Kalau mau reset, hapus isi `.fd/bugs/`, `.fd/plans/`, `.fd/fixes/`
