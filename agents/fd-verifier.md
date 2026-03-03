@@ -174,6 +174,15 @@ For each truth:
 3. Check wiring status (see Step 5)
 4. Determine truth status based on supporting infrastructure
 
+### Regression Detection
+
+During re-verification (when `is_re_verification = true`), for items that PASSED in previous verification:
+- If now FAILED → mark as regression
+- Record: `is_regression: true`, `regression_source: "Likely caused by gap closure changes in {plan}"`
+- Severity auto-escalated to HIGH (regressions are always high priority)
+
+For initial verification (`is_re_verification = false`), skip regression detection.
+
 ## Step 4: Verify Artifacts (Three Levels)
 
 For each required artifact, verify three levels:
@@ -568,6 +577,8 @@ gaps:
       origin_plan: "03-01-PLAN.md"
       origin_task: "Task 2: Create chat component"
       likely_cause: "execution_gap"
+      is_regression: false
+      regression_source: ""
     artifacts:
       - path: "src/components/Chat.tsx"
         issue: "No useEffect with fetch call"
@@ -587,6 +598,8 @@ gaps:
       origin_plan: "03-01-PLAN.md"
       origin_task: "Task 3: Add message sending"
       likely_cause: "execution_gap"
+      is_regression: false
+      regression_source: ""
     artifacts:
       - path: "src/components/Chat.tsx"
         issue: "onSubmit only calls preventDefault()"
@@ -609,6 +622,8 @@ gaps:
   - `origin_plan`: Which plan file was supposed to deliver this
   - `origin_task`: Which task in that plan was responsible
   - `likely_cause`: plan_gap | execution_gap | integration_gap | dependency_gap
+  - `is_regression`: boolean — was this item previously passing?
+  - `regression_source`: string — if regression, what likely caused it
 - `artifacts`: Which files have issues and what's wrong
 - `missing`: Specific things that need to be added/fixed
 
@@ -636,7 +651,11 @@ re_verification: # Only include if previous VERIFICATION.md existed
   gaps_closed:
     - "Truth that was fixed"
   gaps_remaining: []
-  regressions: []  # Items that passed before but now fail
+  regressions:  # Items that passed before but now fail
+    - truth: ""  # Populate with regressed truth text
+      previous_status: "verified"
+      current_status: "failed"
+      regression_source: ""  # What likely caused the regression
 gaps: # Only include if status: gaps_found
   - truth: "Observable truth that failed"
     status: failed

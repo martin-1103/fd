@@ -91,6 +91,49 @@ Stop and wait for user to clean up.
 BASE_HASH=$(git rev-parse HEAD)
 ```
 
+**Create worktree for fix:**
+
+```bash
+# Derive slug from plan filename
+FIX_SLUG=$(ls .fd/plans/${NN}-*.md 2>/dev/null | head -1 | sed 's|.fd/plans/||;s|\.md||' | sed 's/^[0-9]*-//')
+WORKTREE_BRANCH="fd/fix-${FIX_SLUG}"
+WORKTREE_PATH=".claude/worktrees/fd-fix-${FIX_SLUG}"
+
+# Check if worktree already exists
+if [ -d "$WORKTREE_PATH" ]; then
+  echo "Worktree sudah ada: $WORKTREE_PATH"
+fi
+```
+
+**If worktree exists:** Ask user:
+```
+Worktree untuk fix "${FIX_SLUG}" sudah ada di ${WORKTREE_PATH}.
+Lanjutkan dari yang ada, atau mulai fresh?
+```
+- **Continue** → use existing
+- **Fresh start** → `git worktree remove $WORKTREE_PATH && git branch -D $WORKTREE_BRANCH` then recreate
+
+**If worktree doesn't exist:** Create it:
+```bash
+mkdir -p .claude/worktrees
+git worktree add -b "$WORKTREE_BRANCH" "$WORKTREE_PATH" HEAD
+```
+
+**Copy bug/plan files into worktree:**
+```bash
+mkdir -p "$WORKTREE_PATH/.fd/bugs" "$WORKTREE_PATH/.fd/plans"
+cp .fd/bugs/${NN}-*.md "$WORKTREE_PATH/.fd/bugs/"
+cp .fd/plans/${NN}-*.md "$WORKTREE_PATH/.fd/plans/"
+```
+
+**Set context for all agents:**
+```
+WORKTREE_ABS=$(cd "$WORKTREE_PATH" && pwd)
+BASE_HASH=$(cd "$WORKTREE_PATH" && git rev-parse HEAD)
+```
+
+All fixer and reviewer agents receive in their prompt: `WORKTREE: $WORKTREE_ABS — all file operations and git commands inside this directory.`
+
 Announce:
 ```
 Loading plan: .fd/plans/{NN}-{slug}.md
@@ -111,6 +154,8 @@ For each step in the plan, spawn a fixer subagent:
 ```
 Agent(
   prompt="You are a fixer agent. Execute this fix step precisely.
+
+Working directory: $WORKTREE_ABS
 
 CONTEXT:
 - Bug report: .fd/bugs/{NN}-{slug}.md (read this for full context)
@@ -170,6 +215,8 @@ while iteration < max_iterations:
 ```
 Agent(
   prompt="You are a senior code reviewer performing a post-fix review.
+
+Working directory: $WORKTREE_ABS — run git diff inside this directory.
 
 CONTEXT:
 Read these files first:
@@ -262,6 +309,15 @@ OUTPUT FORMAT (strict):
 
 Overall: PASS (all 7 pass) / FAIL (any fail)
 
+## Verdict
+
+**Result:** LGTM | ISSUES_FOUND
+**Blocking issues:** {count of must_fix}
+**Non-blocking issues:** {count of should_fix}
+
+If ISSUES_FOUND, issues are listed below with must_fix/should_fix severity.
+If LGTM, no issues section needed.
+
 ## Issues Found (if any FAIL)
 
 For each FAIL:
@@ -314,11 +370,19 @@ Issues:
 Fixing...
 ```
 
+**Parse verdict:**
+- If "LGTM" (or all 7 PASS) → break loop
+- If "ISSUES_FOUND" → count must_fix vs should_fix
+  - If only should_fix remaining and iteration >= 3 → ask user: "Remaining issues are should_fix only. Ship atau fix?"
+  - If must_fix → continue loop
+
 ### 3.C — Spawn Fixer with Review Feedback (sonnet)
 
 ```
 Agent(
   prompt="You are a fixer agent. The code review found issues that need to be fixed.
+
+Working directory: $WORKTREE_ABS
 
 REVIEW FEEDBACK:
 {paste the FAIL dimensions with their issues and fix directions}
@@ -365,10 +429,10 @@ Opsi: revert semua fix commits dengan `git revert {BASE_HASH}..HEAD` atau fix ma
 ## STEP 4 — Save Fix Report
 
 ```bash
-mkdir -p .fd/fixes
+mkdir -p "$WORKTREE_PATH/.fd/fixes"
 ```
 
-Extract slug from plan filename. Write to `.fd/fixes/{NN}-{slug}.md`:
+Extract slug from plan filename. Write to `$WORKTREE_PATH/.fd/fixes/{NN}-{slug}.md`:
 
 ```markdown
 ---
@@ -420,7 +484,8 @@ Issues fixed: [list]
 ## STEP 5 — Done
 
 ```
-Fix selesai: .fd/fixes/{NN}-{slug}.md
+Fix selesai di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main.
 
 Status: {passed|failed}
 Iterations: {N}/{max_iterations}

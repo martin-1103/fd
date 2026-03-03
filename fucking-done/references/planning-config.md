@@ -12,6 +12,13 @@ Configuration options for `.fd/planning/` directory behavior.
   "branching_strategy": "none",
   "phase_branch_template": "fd/phase-{phase}-{slug}",
   "milestone_branch_template": "fd/{milestone}-{slug}"
+},
+"worktree": {
+  "enabled": true,
+  "base_path": ".claude/worktrees",
+  "feature_branch_template": "fd/feature-{slug}",
+  "fix_branch_template": "fd/fix-{slug}",
+  "auto_cleanup": false
 }
 ```
 
@@ -22,6 +29,11 @@ Configuration options for `.fd/planning/` directory behavior.
 | `git.branching_strategy` | `"none"` | Git branching approach: `"none"`, `"phase"`, or `"milestone"` |
 | `git.phase_branch_template` | `"fd/phase-{phase}-{slug}"` | Branch template for phase strategy |
 | `git.milestone_branch_template` | `"fd/{milestone}-{slug}"` | Branch template for milestone strategy |
+| `worktree.enabled` | `true` | Whether /fd:run and /fd:fix create isolated worktrees |
+| `worktree.base_path` | `".claude/worktrees"` | Base directory for worktrees |
+| `worktree.feature_branch_template` | `"fd/feature-{slug}"` | Branch template for feature worktrees |
+| `worktree.fix_branch_template` | `"fd/fix-{slug}"` | Branch template for fix worktrees |
+| `worktree.auto_cleanup` | `false` | Whether to auto-remove worktree after merge |
 </config_schema>
 
 <commit_docs_behavior>

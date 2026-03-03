@@ -14,7 +14,7 @@ FD is a collection of Claude Code slash commands for two workflows:
 For building new features. Uses `.fd/` for project-level and `.fd/planning/<feature>/` for feature-level.
 
 ```
-/fd:init → /fd:feature → /fd:discuss-phase → /fd:run
+/fd:init → /fd:feature → /fd:discuss-phase → /fd:run → /fd:merge
 ```
 
 | Command | Purpose | Input | Output |
@@ -24,6 +24,7 @@ For building new features. Uses `.fd/` for project-level and `.fd/planning/<feat
 | `/fd:feature <name>` | Plan a feature (research, requirements, roadmap) | Feature name (e.g. `auth-system`) | `.fd/planning/<name>/` |
 | `/fd:discuss-phase <feature> <phase>` | Gather phase context through adaptive Q&A | Feature + phase number | Phase context for planning |
 | `/fd:run <name>` | Plan, execute, and verify all phases | Feature name | Built feature with verification |
+| `/fd:merge [slug]` | Merge FD worktree back to main | Branch slug (optional) | Merged code, cleaned worktree |
 
 ### Example
 
@@ -41,7 +42,7 @@ For building new features. Uses `.fd/` for project-level and `.fd/planning/<feat
 For debugging and fixing bugs. Uses `.fd/` directory.
 
 ```
-/fd:analyze → /fd:planner → /fd:fix
+/fd:analyze → /fd:planner → /fd:fix → /fd:merge
 ```
 
 | Command | Purpose | Input | Output |
@@ -49,6 +50,7 @@ For debugging and fixing bugs. Uses `.fd/` directory.
 | `/fd:analyze <input>` | Root cause investigation | Error log, screenshot, URL, file path, or description | `.fd/bugs/{NN}-{slug}.md` |
 | `/fd:planner <NN>` | Create evidence-driven fix plan | Bug number from analyze | `.fd/plans/{NN}-{slug}.md` |
 | `/fd:fix <NN>` | Execute fix with review loop | Plan number from planner | `.fd/fixes/{NN}-{slug}.md` |
+| `/fd:merge [slug]` | Merge FD worktree back to main | Branch slug (optional) | Merged code, cleaned worktree |
 
 ### Example
 
@@ -125,3 +127,4 @@ For debugging and fixing bugs. Uses `.fd/` directory.
 - Bug numbers auto-increment — no need to track manually
 - Fix workflow is strictly sequential: analyze → planner → fix
 - Build workflow can re-run phases independently
+- Both build and fix workflows create worktrees — use `/fd:merge` to merge back

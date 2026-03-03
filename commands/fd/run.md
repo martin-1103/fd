@@ -40,7 +40,72 @@ The `$ARGUMENTS` variable contains the feature name. Parse and validate it immed
    ```
 
 All subsequent paths use `$PLANNING_DIR` instead of `.fd/planning/`.
+After worktree setup (Phase 0.5), `$PLANNING_DIR` is relative to `$WORKTREE_ABS`.
 </argument_parsing>
+
+<worktree_setup>
+## Phase 0.5: Prepare Worktree
+
+After argument parsing, create an isolated worktree for this feature.
+
+### Create Worktree
+
+```bash
+FEATURE_SLUG=$FEATURE
+WORKTREE_BRANCH="fd/feature-${FEATURE_SLUG}"
+WORKTREE_PATH=".claude/worktrees/fd-feature-${FEATURE_SLUG}"
+
+# Check if worktree already exists
+if [ -d "$WORKTREE_PATH" ]; then
+  echo "Worktree sudah ada: $WORKTREE_PATH"
+fi
+```
+
+**If worktree exists:** Ask user:
+```
+Worktree untuk feature "${FEATURE}" sudah ada di ${WORKTREE_PATH}.
+Lanjutkan dari yang ada, atau mulai fresh (hapus dan buat ulang)?
+```
+- **Continue** → use existing worktree as-is
+- **Fresh start** → `git worktree remove $WORKTREE_PATH && git branch -D $WORKTREE_BRANCH` then create new
+
+**If worktree doesn't exist:** Create it:
+```bash
+mkdir -p .claude/worktrees
+git worktree add -b "$WORKTREE_BRANCH" "$WORKTREE_PATH" HEAD
+```
+
+### Set Working Context
+
+```bash
+WORKTREE_ABS=$(cd "$WORKTREE_PATH" && pwd)
+PLANNING_DIR=.fd/planning/$FEATURE
+```
+
+Note: `PLANNING_DIR` is relative to the worktree root (`$WORKTREE_ABS`).
+
+All subsequent agents (planner, executor, verifier) receive this in their prompt context:
+```
+WORKTREE: $WORKTREE_ABS
+All file operations happen inside this worktree directory.
+```
+
+STATE.md metadata includes:
+```yaml
+worktree:
+  path: $WORKTREE_PATH
+  branch: $WORKTREE_BRANCH
+  base_commit: $(git rev-parse HEAD)
+```
+
+### Completion Note
+
+At Phase 3 (cleanup), do NOT delete the worktree. Instead announce:
+```
+Feature selesai di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main.
+```
+</worktree_setup>
 
 <objective>
 You are the FD lead agent. Orchestrate the entire build pipeline using background subagents.
@@ -607,6 +672,7 @@ Phase: {phase_name}
 Phase dir: $PLANNING_DIR/phases/{phase_dir}/
 Phase goal: {phase_goal}
 PLANNING_DIR: $PLANNING_DIR/
+WORKTREE: $WORKTREE_ABS — all file operations inside this directory.
 
 Read these files before starting:
 - Plan file (above)
@@ -670,6 +736,7 @@ RETRY: Execute plan {plan_id} (attempt {retry_count + 1})
 Plan file: $PLANNING_DIR/phases/{phase_dir}/{plan_filename}
 Phase dir: $PLANNING_DIR/phases/{phase_dir}/
 PLANNING_DIR: $PLANNING_DIR/
+WORKTREE: $WORKTREE_ABS — all file operations inside this directory.
 
 Previous attempt failed. Check git log for partial commits from prior attempt.
 If partial work exists, continue from where it left off.
@@ -1014,9 +1081,15 @@ Verification: All phases verified
 
 **Total:** {total_plans} plans in {total_duration} | First-try pass rate: {rate}%
 
+## Worktree
+
+Feature selesai di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main.
+
 ## Next Steps
 
 - /fd:run $FEATURE -- run again (will pick up any new unfinished work)
+- /fd:merge $FEATURE -- merge worktree branch ke main
 - Manual acceptance testing can be done by reviewing verification reports
 ```
 
@@ -1048,10 +1121,16 @@ FD > RUN COMPLETE (with gaps)
 **Phase 02-auth:**
 - {gap description from VERIFICATION.md}
 
+## Worktree
+
+Feature di worktree: $WORKTREE_PATH (branch: $WORKTREE_BRANCH)
+Jalankan /fd:merge untuk merge ke main setelah gaps resolved.
+
 ## Next Steps
 
 - /fd:run $FEATURE -- retry gap closure
 - /fd:discuss-phase 02-auth -- discuss approach for problematic phase
+- /fd:merge $FEATURE -- merge worktree branch ke main
 - Manual fix then /fd:run $FEATURE to re-verify
 ```
 
