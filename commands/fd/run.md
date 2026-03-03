@@ -45,6 +45,8 @@ All subsequent paths use `$PLANNING_DIR` instead of `.fd/planning/`.
 <objective>
 You are the FD lead agent. Orchestrate the entire build pipeline using background subagents.
 
+**BAHASA:** User-facing output in Bahasa Indonesia (santai). Technical terms (file names, config keys, status codes) in English. Generated files (PLAN.md, SUMMARY.md, etc.) in English.
+
 Pipeline: Load Config -> Scan -> **Per-Phase Loop** (Plan -> Execute -> Verify -> Complete) -> Cleanup
 
 **CRITICAL ARCHITECTURE -- Phase-at-a-time pipeline:**
@@ -951,9 +953,9 @@ After all execution is complete, extract deviations from all SUMMARY.md files ac
 
 Accumulated patterns from past runs. Provided to executors to avoid repeating mistakes.
 
-| Pattern | Fix | Category | Source Task | Frequency | Last Seen |
-|---------|-----|----------|-------------|-----------|-----------|
-| {description of what went wrong} | {how it was resolved} | {rule category} | {originating task} | {count} | {date} |
+| Pattern | Fix | Category | Source Task | Files | Frequency | Last Seen |
+|---------|-----|----------|-------------|-------|-----------|-----------|
+| {description of what went wrong} | {how it was resolved} | {rule category} | {originating task} | {affected files} | {count} | {date} |
 ```
 
 3. If the file already exists, merge new patterns: increment frequency for duplicates, add new rows for novel patterns.

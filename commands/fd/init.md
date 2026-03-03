@@ -16,6 +16,8 @@ Initialize a new project through: setup → brownfield detection → questioning
 
 This is the project-level setup. It creates `.fd/PROJECT.md` and `.fd/config.json` — shared across all features. After this, use `/fd:feature <name>` to plan individual features.
 
+**BAHASA:** User-facing output in Bahasa Indonesia (santai). Technical terms (file names, config keys, status codes) in English. Generated files (PLAN.md, SUMMARY.md, etc.) in English.
+
 **Creates:**
 - `.fd/PROJECT.md` — project context
 - `.fd/config.json` — workflow preferences

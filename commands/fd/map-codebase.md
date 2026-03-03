@@ -15,6 +15,8 @@ allowed-tools:
 <objective>
 Analyze existing codebase using parallel fd-codebase-mapper agents to produce structured codebase documents.
 
+**BAHASA:** User-facing output in Bahasa Indonesia (santai). Technical terms (file names, config keys, status codes) in English. Generated files (PLAN.md, SUMMARY.md, etc.) in English.
+
 Each mapper agent explores a focus area and **writes documents directly** to `.fd/codebase/`. The orchestrator only receives confirmations, keeping context usage minimal.
 
 Output: `.fd/codebase/` folder with 7 structured documents about the codebase state.

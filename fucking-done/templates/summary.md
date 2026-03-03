@@ -94,8 +94,8 @@ _Note: TDD tasks may have multiple commits (test → feat → refactor)_
 
 ### Deviation Memory
 <!-- DEVIATION_MEMORY_START -->
-| pattern | fix | category | task | files |
-|---------|-----|----------|------|-------|
+| Pattern | Fix | Category | Source Task | Files |
+|---------|-----|----------|-------------|-------|
 | [pattern description] | [fix applied] | Rule N - Type | Task N | [files] |
 <!-- DEVIATION_MEMORY_END -->
 

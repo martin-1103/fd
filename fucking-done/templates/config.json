@@ -1,35 +1,33 @@
 {
   "mode": "interactive",
   "depth": "standard",
+  "parallelization": true,
+  "commit_docs": true,
+  "model_profile": "balanced",
   "workflow": {
     "research": true,
     "plan_check": true,
-    "verifier": true
+    "verifier": true,
+    "difficulty_aware": true
   },
-  "planning": {
-    "commit_docs": true,
-    "search_gitignored": false
+  "agent_team": {
+    "lead_model": "opus",
+    "teammate_model": "sonnet",
+    "max_gap_loops": 3,
+    "max_parallel": 4,
+    "isolation": "shared"
   },
-  "parallelization": {
-    "enabled": true,
-    "plan_level": true,
-    "task_level": false,
-    "skip_checkpoints": true,
-    "max_concurrent_agents": 3,
-    "min_plans_for_parallel": 2
+  "repair": {
+    "max_retries": 2,
+    "backoff": "none",
+    "timeout_minutes": 30,
+    "idempotency": true
   },
-  "gates": {
-    "confirm_project": true,
-    "confirm_phases": true,
-    "confirm_roadmap": true,
-    "confirm_breakdown": true,
-    "confirm_plan": true,
-    "execute_next_plan": true,
-    "issues_review": true,
-    "confirm_transition": true
-  },
-  "safety": {
-    "always_confirm_destructive": true,
-    "always_confirm_external_services": true
+  "aid": {
+    "enabled": false,
+    "include": "",
+    "exclude": "*test*,*spec*,*.config.*,node_modules,vendor",
+    "flags": "--format md",
+    "src_path": ""
   }
 }

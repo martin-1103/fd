@@ -87,7 +87,7 @@ Check if the spawn prompt includes a `PAST_DEVIATIONS:` section. If yes, parse a
 <step name="load_codebase_context">
 **Codebase context: aid-assisted + just-in-time**
 
-If `.fd/codebase/aid-full.md` exists, it contains implementation bodies alongside signatures — useful when you need to understand surrounding code context for the files you're modifying. Read relevant sections (not the whole file) when needed.
+If `.fd/codebase/aid-full.md` exists (created by /fd:run when aid.enabled=true in config), it contains implementation bodies alongside signatures — useful when you need to understand surrounding code context for the files you're modifying. Read relevant sections (not the whole file) when needed.
 
 If `.fd/codebase/aid-distilled.md` exists but `aid-full.md` doesn't, use the distilled version for structural overview (signatures only, no bodies).
 

@@ -19,6 +19,8 @@ allowed-tools:
 FEATURE = $ARGUMENTS (trimmed)
 ```
 
+**BAHASA:** User-facing output in Bahasa Indonesia (santai). Technical terms (file names, config keys, status codes) in English. Generated files (PLAN.md, SUMMARY.md, etc.) in English.
+
 **Validation:**
 1. If `FEATURE` is empty → Output "ERROR: Feature name required. Usage: /fd:feature <feature-name>" and STOP.
 2. If `FEATURE` contains spaces or uppercase → Output "ERROR: Feature name must be lowercase-hyphen format (e.g. 'auth-system', 'chat-widget')" and STOP.
