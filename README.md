@@ -14,6 +14,7 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   ├── fix.md
 │   ├── init.md
 │   ├── map-codebase.md
+│   ├── merge.md
 │   ├── planner.md
 │   └── run.md
 ├── agents/                   ← Background worker agents
@@ -41,7 +42,9 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 
 ## Cara Install
 
-### 1. Copy semua file ke `~/.claude/`
+### Linux / macOS
+
+#### 1. Copy semua file ke `~/.claude/`
 
 ```bash
 # Core system
@@ -67,19 +70,64 @@ chmod +x ~/.claude/skills/error-analyzer/scripts/ea.sh
 rm -f ~/.claude/commands/fd/new-project.md
 ```
 
-### 2. Verify installation
+#### 2. Verify installation
 
 ```bash
-# Pastikan semua file ada
 ls ~/.claude/commands/fd/
 ls ~/.claude/agents/fd-*.md
 ls ~/.claude/fucking-done/
 ls ~/.claude/skills/error-analyzer/
 ```
 
-### 3. Restart Claude Code
+#### 3. Restart Claude Code
 
 Setelah copy, restart Claude Code supaya commands dan agents ke-detect.
+
+---
+
+### Windows
+
+Claude Code support Windows native. Folder `.claude/` ada di `%USERPROFILE%\.claude\` (biasanya `C:\Users\USERNAME\.claude\`).
+
+#### 1. Copy semua file (PowerShell)
+
+```powershell
+# Core system
+Copy-Item -Recurse -Force fucking-done\ "$env:USERPROFILE\.claude\fucking-done\"
+
+# Commands
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands\fd" | Out-Null
+Copy-Item -Recurse -Force commands\fd\* "$env:USERPROFILE\.claude\commands\fd\"
+
+# Agents
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\agents" | Out-Null
+Copy-Item -Force agents\fd-*.md "$env:USERPROFILE\.claude\agents\"
+
+# Skills
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\error-analyzer" | Out-Null
+Copy-Item -Recurse -Force skills\error-analyzer\* "$env:USERPROFILE\.claude\skills\error-analyzer\"
+```
+
+**Upgrading from older version?** Remove stale files:
+
+```powershell
+Remove-Item -Force "$env:USERPROFILE\.claude\commands\fd\new-project.md" -ErrorAction SilentlyContinue
+```
+
+#### 2. Verify installation
+
+```powershell
+dir "$env:USERPROFILE\.claude\commands\fd\"
+dir "$env:USERPROFILE\.claude\agents\fd-*.md"
+dir "$env:USERPROFILE\.claude\fucking-done\"
+dir "$env:USERPROFILE\.claude\skills\error-analyzer\"
+```
+
+#### 3. Restart Claude Code
+
+Setelah copy, restart Claude Code supaya commands dan agents ke-detect.
+
+---
 
 ## Path yang Perlu Diperhatikan
 
@@ -98,12 +146,26 @@ File-file berikut mengandung **hardcoded absolute path** ke `/root/.claude/fucki
 | `fucking-done/templates/codebase/structure.md` | Template |
 | `fucking-done/references/verification-patterns.md` | Reference |
 
-**Kalau home directory kamu bukan `/root/`**, kamu perlu find-and-replace path ini:
+**Kalau home directory kamu bukan `/root/`**, kamu perlu find-and-replace path ini.
+
+**Linux / macOS:**
 
 ```bash
 # Contoh: ganti /root/ ke /home/username/
 find ~/.claude/commands/fd/ ~/.claude/agents/ ~/.claude/fucking-done/ \
   -name "*.md" -exec sed -i 's|/root/.claude/fucking-done|/home/USERNAME/.claude/fucking-done|g' {} +
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Ganti USERNAME dengan username kamu
+$claudeDir = "$env:USERPROFILE\.claude"
+$old = "/root/.claude/fucking-done"
+$new = "/Users/USERNAME/.claude/fucking-done"
+
+Get-ChildItem -Recurse -Include "*.md" "$claudeDir\commands\fd", "$claudeDir\agents", "$claudeDir\fucking-done" |
+  ForEach-Object { (Get-Content $_.FullName -Raw) -replace [regex]::Escape($old), $new | Set-Content $_.FullName -NoNewline }
 ```
 
 Ganti `USERNAME` dengan username kamu.
@@ -113,7 +175,7 @@ Ganti `USERNAME` dengan username kamu.
 ### Build Workflow — Bikin fitur baru
 
 ```
-/fd:init → /fd:feature → /fd:discuss-phase → /fd:run
+/fd:init → /fd:feature → /fd:discuss-phase → /fd:run → /fd:merge
 ```
 
 | Command | Fungsi | Input | Output |
@@ -121,8 +183,9 @@ Ganti `USERNAME` dengan username kamu.
 | `/fd:init` | Init project, deep context gathering | (none) | `.fd/PROJECT.md`, `.fd/config.json` |
 | `/fd:map-codebase` | Analyze codebase with parallel agents | (none) | `.fd/codebase/` (7 docs) |
 | `/fd:feature <name>` | Plan a feature (research, requirements, roadmap) | Nama fitur | `.fd/planning/<name>/` |
-| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase number | Phase context |
+| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase number | `{phase}-CONTEXT.md` di planning dir |
 | `/fd:run <name>` | Plan, execute, verify semua phase | Nama fitur | Built feature + verification |
+| `/fd:merge [slug]` | Merge worktree back ke main branch | Branch slug (optional) | Merged code, cleaned worktree |
 
 **Contoh:**
 
@@ -131,12 +194,13 @@ Ganti `USERNAME` dengan username kamu.
 /fd:feature chat-widget
 /fd:discuss-phase chat-widget 1
 /fd:run chat-widget
+/fd:merge
 ```
 
 ### Fix Workflow — Debug & fix bug
 
 ```
-/fd:analyze → /fd:planner → /fd:fix
+/fd:analyze → /fd:planner → /fd:fix → /fd:merge
 ```
 
 | Command | Fungsi | Input | Output |
@@ -144,6 +208,7 @@ Ganti `USERNAME` dengan username kamu.
 | `/fd:analyze <input>` | Root cause investigation | Error log, screenshot, URL, file path, atau deskripsi | `.fd/bugs/{NN}-{slug}.md` |
 | `/fd:planner <NN>` | Buat fix plan dari evidence | Bug number | `.fd/plans/{NN}-{slug}.md` |
 | `/fd:fix <NN>` | Execute fix + review loop | Plan number | `.fd/fixes/{NN}-{slug}.md` |
+| `/fd:merge [slug]` | Merge worktree back ke main branch | Branch slug (optional) | Merged code, cleaned worktree |
 
 **Contoh:**
 
@@ -151,6 +216,7 @@ Ganti `USERNAME` dengan username kamu.
 /fd:analyze "TypeError: Cannot read property 'x' of undefined"
 /fd:planner 01
 /fd:fix 01
+/fd:merge
 ```
 
 ## Workflow Diagram
@@ -158,13 +224,13 @@ Ganti `USERNAME` dengan username kamu.
 ### Build Workflow
 
 ```
-  /fd:init           /fd:feature          /fd:discuss-phase       /fd:run
-  ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐   ┌─────────────────────┐
-  │ Setup       │   │ Research     │   │ Adaptive Q&A     │   │ For each phase:     │
-  │ PROJECT.md  │──▶│ Requirements │──▶│ per phase        │──▶│  1. Research        │
-  │ config.json │   │ Roadmap      │   │ (gather context) │   │  2. Plan            │
-  │ codebase/   │   └──────────────┘   └──────────────────┘   │  3. Check plan      │
-  └─────────────┘                                              │  4. Execute         │
+  /fd:init           /fd:feature          /fd:discuss-phase       /fd:run                    /fd:merge
+  ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐   ┌─────────────────────┐   ┌──────────────┐
+  │ Setup       │   │ Research     │   │ Adaptive Q&A     │   │ For each phase:     │   │ Merge back   │
+  │ PROJECT.md  │──▶│ Requirements │──▶│ per phase        │──▶│  1. Research        │──▶│ to main      │
+  │ config.json │   │ Roadmap      │   │ (gather context) │   │  2. Plan            │   │ Push remote  │
+  │ codebase/   │   └──────────────┘   └──────────────────┘   │  3. Check plan      │   │ Clean up     │
+  └─────────────┘                                              │  4. Execute         │   └──────────────┘
                                                                │  5. Verify          │
                                                                └─────────────────────┘
 ```
@@ -172,13 +238,13 @@ Ganti `USERNAME` dengan username kamu.
 ### Fix Workflow
 
 ```
-  /fd:analyze              /fd:planner                /fd:fix
-  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐
-  │ Investigate  │        │ Verify claims    │      │ Execute plan steps  │
-  │ root cause  │──────▶ │ via ast-grep     │────▶│ with sonnet agents  │
-  │ multi-input │        │ Detect band-aids │      │ Review with opus    │
-  │ (log, URL,  │        │ Produce fix plan │      │ Loop until 7/7 pass │
-  │  screenshot)│        └──────────────────┘      │ Save fix report     │
+  /fd:analyze              /fd:planner                /fd:fix                    /fd:merge
+  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐   ┌──────────────┐
+  │ Investigate  │        │ Verify claims    │      │ Execute plan steps  │   │ Merge back   │
+  │ root cause  │──────▶ │ via ast-grep     │────▶│ with sonnet agents  │──▶│ to main      │
+  │ multi-input │        │ Detect band-aids │      │ Review with opus    │   │ Push remote  │
+  │ (log, URL,  │        │ Produce fix plan │      │ Loop until 7/7 pass │   │ Clean up     │
+  │  screenshot)│        └──────────────────┘      │ Save fix report     │   └──────────────┘
   └─────────────┘                                   └─────────────────────┘
 ```
 
