@@ -18,7 +18,9 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   └── run.md
 ├── agents/                   ← Background worker agents
 │   ├── fd-codebase-mapper.md
+│   ├── fd-debugger.md
 │   ├── fd-executor.md
+│   ├── fd-integration-checker.md
 │   ├── fd-phase-researcher.md
 │   ├── fd-plan-checker.md
 │   ├── fd-planner.md
@@ -47,6 +49,12 @@ cp -r commands/fd/ ~/.claude/commands/fd/
 # Agents
 mkdir -p ~/.claude/agents/
 cp agents/fd-*.md ~/.claude/agents/
+```
+
+**Upgrading from older version?** Remove stale files:
+
+```bash
+rm -f ~/.claude/commands/fd/new-project.md
 ```
 
 ### 2. Verify installation
@@ -303,13 +311,15 @@ Tambahkan di `~/.claude/settings.json` atau project-level `.claude/settings.json
 | Agent | Fungsi | Dipanggil oleh |
 |-------|--------|----------------|
 | `fd-codebase-mapper` | Analyze codebase per focus area | `/fd:map-codebase`, `/fd:init` |
+| `fd-debugger` | Debug dengan scientific method | `/fd:debug` |
+| `fd-executor` | Execute plan dengan atomic commits | `/fd:run` |
+| `fd-integration-checker` | Verify cross-phase integration & E2E flows | `/fd:run` (milestone audit) |
+| `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
+| `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |
+| `fd-planner` | Buat execution plan per phase | `/fd:run` |
 | `fd-project-researcher` | Research domain ecosystem | `/fd:feature` |
 | `fd-research-synthesizer` | Synthesize research outputs | `/fd:feature` |
 | `fd-roadmapper` | Buat roadmap dari PROJECT.md | `/fd:feature` |
-| `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
-| `fd-planner` | Buat execution plan per phase | `/fd:run` |
-| `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |
-| `fd-executor` | Execute plan dengan atomic commits | `/fd:run` |
 | `fd-verifier` | Verify phase goal tercapai | `/fd:run` |
 
 ## Troubleshooting
