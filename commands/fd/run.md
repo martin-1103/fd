@@ -130,6 +130,19 @@ Read these dynamically at runtime using $PLANNING_DIR:
    ```
    If exists, resume from recorded position instead of starting from scratch.
 
+   If no run-state.json exists, initialize it with metrics tracking:
+   ```json
+   {
+     "current_phase": 0,
+     "phase_step": "init",
+     "wave": 0,
+     "gap_iteration": 0,
+     "metrics": {
+       "run_started": "$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")"
+     }
+   }
+   ```
+
 5. Load planning config for commit behavior:
    ```bash
    COMMIT_PLANNING_DOCS=$(cat .fd/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
@@ -151,6 +164,22 @@ Read these dynamically at runtime using $PLANNING_DIR:
      ${aid.flags} \
      --summary-type off \
      -o .fd/codebase/aid-distilled.md
+
+   # Full version with implementation bodies (for executors)
+   aid "${aid.src_path:-.}" \
+     --include "${aid.include}" \
+     --exclude "${aid.exclude}" \
+     ${aid.flags} --implementation 1 \
+     --summary-type off \
+     -o .fd/codebase/aid-full.md
+
+   # Truncate if too large (>10000 lines)
+   FULL_LINES=$(wc -l < .fd/codebase/aid-full.md 2>/dev/null || echo 0)
+   if [ "$FULL_LINES" -gt 10000 ]; then
+     head -10000 .fd/codebase/aid-full.md > .fd/codebase/aid-full.tmp
+     echo -e "\n<!-- TRUNCATED: ${FULL_LINES} total lines, showing first 10000 -->" >> .fd/codebase/aid-full.tmp
+     mv .fd/codebase/aid-full.tmp .fd/codebase/aid-full.md
+   fi
    ```
    If aid fails or not found, skip silently — it's not required.
 
@@ -255,6 +284,7 @@ If ALL phases are `complete`, skip to Phase 3 (Cleanup & Completion) immediately
 phases_to_process = [phases with status != complete, ordered by phase number]
 
 For each phase in phases_to_process:
+  Record phase start timestamp
   Display phase header
   Run Step 2.A if needs_planning
   Run Step 2.B if has unexecuted plans
@@ -262,6 +292,8 @@ For each phase in phases_to_process:
   Run Step 2.D to complete and commit
   Update run-state.json cursor
 ```
+
+**Record metric:** At the start of each phase iteration, update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].started = $(date -u +"%Y-%m-%dT%H:%M:%SZ")`
 
 Display at start of each phase:
 ```
@@ -518,6 +550,8 @@ After revision loop completes (either passed or max iterations reached):
 Plans finalized for Phase {N} (revision {revision_count})
 ```
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].plan_check_revisions = revision_count`
+
 #### 2.A.6: Update STATE.md
 
 After planning completes for this phase, update STATE.md to reflect the phase is now planned.
@@ -662,6 +696,8 @@ Completed: {N}/{M} plans
 Errors: {E} plans (will be logged as gaps)
 ```
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].executor_retries = {total_retry_count}`, `metrics.phases[{phase}].plans_total = {M}`, `metrics.phases[{phase}].plans_executed = {N}`
+
 ---
 
 ### Step 2.C: Verify (if workflow.verifier enabled)
@@ -794,6 +830,8 @@ WARNING: Maximum gap closure iterations ({max_iterations}) reached.
 Manual intervention may be required.
 ```
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].gap_iterations = gap_iteration`
+
 ---
 
 ### Step 2.D: Complete Phase
@@ -805,6 +843,20 @@ For phases that passed verification (or skipped verification):
 1. Update ROADMAP.md: Mark phase as complete (checkbox ticked)
 2. Update STATE.md: Update phase status to `complete`, update current position
 3. Update REQUIREMENTS.md: Mark phase requirements as `Complete` (if REQUIREMENTS.md exists)
+4. Update STATE.md Performance Metrics section:
+```markdown
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: {sum of plans_executed across phases}
+- Total execution time: {formatted total duration}
+- First-try pass rate: {percentage} ({count}/{total} phases)
+
+**By Phase:**
+| Phase | Plans | Duration | Revisions | Gaps | Retries | 1st Try |
+|-------|-------|----------|-----------|------|---------|---------|
+| {phase} | {plans_executed} | {duration_min} min | {plan_check_revisions} | {gap_iterations} | {executor_retries} | {yes/no} |
+```
 
 #### 2.D.2: Commit phase completion
 
@@ -829,6 +881,8 @@ git commit -m "docs({phase_name}): complete {phase_name} phase"
 
 #### 2.D.3: Update run-state.json cursor
 
+**Record metric:** Update `$PLANNING_DIR/run-state.json` → `metrics.phases[{phase}].completed = $(date -u +"%Y-%m-%dT%H:%M:%SZ")`, calculate `metrics.phases[{phase}].duration_min = (completed - started) in minutes`, and derive `metrics.phases[{phase}].first_try_pass = (gap_iterations == 0 AND executor_retries == 0 AND plan_check_revisions == 0)`.
+
 Write current position to `$PLANNING_DIR/run-state.json` for recovery:
 
 ```json
@@ -836,7 +890,23 @@ Write current position to `$PLANNING_DIR/run-state.json` for recovery:
   "current_phase": {N},
   "phase_step": "complete",
   "wave": 0,
-  "gap_iteration": 0
+  "gap_iteration": 0,
+  "metrics": {
+    "run_started": "2026-03-03T14:00:00Z",
+    "phases": {
+      "01-setup": {
+        "started": "...",
+        "completed": "...",
+        "duration_min": 14,
+        "plans_total": 3,
+        "plans_executed": 3,
+        "plan_check_revisions": 0,
+        "gap_iterations": 0,
+        "executor_retries": 0,
+        "first_try_pass": true
+      }
+    }
+  }
 }
 ```
 
@@ -857,6 +927,16 @@ Moving to next phase...
 ---
 
 ## Phase 3: Cleanup & Completion
+
+### Step 3.0: Aggregate pipeline metrics
+
+Read `$PLANNING_DIR/run-state.json` metrics and compute:
+
+1. **Total duration:** Sum of all `phases[*].duration_min`
+2. **First-try pass rate:** Count of phases where `first_try_pass == true` / total phases
+3. **Total rework:** Sum of `plan_check_revisions + gap_iterations + executor_retries` across all phases
+
+Store computed aggregates for STATE.md and completion banner.
 
 ### Step 3.1: Persist deviation memory (cross-session learning)
 
@@ -924,6 +1004,14 @@ Verification: All phases verified
 | 02-auth        | 4     | Verified   |
 | 03-content     | 3     | Verified   |
 
+## Performance
+
+| Phase | Plans | Duration | Revisions | Gaps | Retries | 1st Try |
+|-------|-------|----------|-----------|------|---------|---------|
+| {per-phase rows from metrics} |
+
+**Total:** {total_plans} plans in {total_duration} | First-try pass rate: {rate}%
+
 ## Next Steps
 
 - /fd:run $FEATURE -- run again (will pick up any new unfinished work)
@@ -944,6 +1032,14 @@ FD > RUN COMPLETE (with gaps)
 | 01-setup       | 3     | Verified          |
 | 02-auth        | 4     | Gaps remaining    |
 | 03-content     | 3     | Verified          |
+
+## Performance
+
+| Phase | Plans | Duration | Revisions | Gaps | Retries | 1st Try |
+|-------|-------|----------|-----------|------|---------|---------|
+| {per-phase rows from metrics} |
+
+**Total:** {total_plans} plans in {total_duration} | First-try pass rate: {rate}%
 
 ## Unresolved Gaps
 
@@ -992,20 +1088,31 @@ Next wave
 
 ### State Recovery
 
-Lead writes cursor position to `$PLANNING_DIR/run-state.json` after each step:
+Lead writes cursor position and metrics to `$PLANNING_DIR/run-state.json` after each step:
 ```json
 {
   "current_phase": 3,
   "phase_step": "execute",
   "wave": 2,
-  "gap_iteration": 0
+  "gap_iteration": 0,
+  "metrics": {
+    "run_started": "2026-03-03T14:00:00Z",
+    "phases": {
+      "01-setup": {
+        "started": "...", "completed": "...", "duration_min": 14,
+        "plans_total": 3, "plans_executed": 3,
+        "plan_check_revisions": 0, "gap_iterations": 0,
+        "executor_retries": 0, "first_try_pass": true
+      }
+    }
+  }
 }
 ```
 
 Task status is derived from filesystem:
 - SUMMARY.md exists -> plan executed
 - VERIFICATION.md exists -> phase verified
-- No state file bloat -- just a cursor
+- Metrics accumulated per-phase for performance reporting
 
 </execution_architecture>
 
@@ -1157,10 +1264,11 @@ Phase 2: Per-Phase Pipeline (for each phase, sequential)
           +- Display phase complete
 
 Phase 3: Cleanup & Completion
+  - 3.0: Aggregate pipeline metrics (duration, first-try pass rate, total rework)
   - 3.1: Persist deviation memory
   - 3.2: Commit orchestrator changes
   - 3.3: Delete run-state.json
-  - 3.4: Display final status
+  - 3.4: Display final status (with performance table)
 ```
 
 </phase_flow_summary>
@@ -1190,5 +1298,9 @@ Phase 3: Cleanup & Completion
 - [ ] Individual file staging for all git commits (no broad adds)
 - [ ] Codebase context via just-in-time discovery (agents use Grep/Glob/Read)
 - [ ] Lead context stayed lean throughout (~10-15%)
+- [ ] Pipeline metrics recorded per phase (started, completed, duration, retries, revisions, gaps)
+- [ ] Metrics aggregated at completion (total duration, first-try pass rate, total rework)
+- [ ] Performance table displayed in completion banner
+- [ ] STATE.md Performance Metrics section updated with per-phase data
 - [ ] User informed of final status and next steps
 </success_criteria>

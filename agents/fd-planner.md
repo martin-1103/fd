@@ -956,21 +956,26 @@ Store `COMMIT_PLANNING_DOCS` for use in git operations.
 </step>
 
 <step name="load_codebase_context">
-Check for codebase map:
+**Codebase discovery: aid-assisted + just-in-time**
 
 ```bash
 ls .fd/codebase/*.md 2>/dev/null
 ```
 
-**Codebase discovery: just-in-time (no pre-loaded dumps)**
+If `.fd/codebase/aid-distilled.md` exists:
+- Read it first — it contains all public APIs, types, and file paths (compact, ~1-3K lines)
+- Use it to identify which files/packages are relevant to this phase
+- Then do targeted Grep/Read on those specific files for implementation details
 
-Use Grep/Glob/Read to explore the codebase on-demand as you plan. This is more accurate than any pre-generated summary.
+If it doesn't exist:
+- Fall back to Grep/Glob/Read for full exploration (current behavior)
 
+**Always available (regardless of aid):**
 - `Grep` for function signatures, types, imports to understand existing patterns
 - `Glob` to find relevant source files and directory structure
 - `Read` key files to understand implementation details
 
-Discover what you need, when you need it. Do NOT read large dump files into context.
+The aid output gives you a map; Grep/Glob/Read fills in the details.
 </step>
 
 <step name="identify_phase">

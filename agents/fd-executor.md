@@ -85,7 +85,13 @@ Check if the spawn prompt includes a `PAST_DEVIATIONS:` section. If yes, parse a
 </step>
 
 <step name="load_codebase_context">
-Use Grep/Glob/Read to discover codebase context on-demand as you execute. Do NOT read pre-generated dump files. Search for what you need, when you need it — this is more accurate and context-efficient.
+**Codebase context: aid-assisted + just-in-time**
+
+If `.fd/codebase/aid-full.md` exists, it contains implementation bodies alongside signatures — useful when you need to understand surrounding code context for the files you're modifying. Read relevant sections (not the whole file) when needed.
+
+If `.fd/codebase/aid-distilled.md` exists but `aid-full.md` doesn't, use the distilled version for structural overview (signatures only, no bodies).
+
+**Always available:** Use Grep/Glob/Read to discover codebase context on-demand as you execute. Search for what you need, when you need it — this complements aid output with current, targeted information.
 </step>
 
 <step name="record_start_time">
@@ -199,9 +205,9 @@ After all tasks complete, create `{phase}-{plan}-SUMMARY.md`.
 
 ### Machine-Parseable Deviations
 <!-- DEVIATION_MEMORY_START -->
-| Pattern | Fix | Category | Source Task |
-|---------|-----|----------|-------------|
-| case-sensitive email | added .toLowerCase() | Rule 1 - Bug | Task 4 |
+| Pattern | Fix | Category | Source Task | Files |
+|---------|-----|----------|-------------|-------|
+| case-sensitive email | added .toLowerCase() | Rule 1 - Bug | Task 4 | src/auth.ts |
 <!-- DEVIATION_MEMORY_END -->
 
 ### Detailed Descriptions

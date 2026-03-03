@@ -98,6 +98,25 @@ Also read the `CODEBASE_DIR` variable from your prompt — all documents write t
 <step name="explore_codebase">
 Explore the codebase thoroughly for your focus area.
 
+**Pre-scan (if available):**
+
+```bash
+# Check if aid distillation exists — use as exploration starting point
+if [ -f "$CODEBASE_DIR/aid-distilled.md" ]; then
+  wc -l "$CODEBASE_DIR/aid-distilled.md"
+  # Read it for structural overview before deep exploration
+fi
+```
+
+If aid-distilled.md exists, read it first. It contains:
+- All file paths in the codebase (with `<file path="...">` tags)
+- Public API surface: exported functions, types, interfaces, structs
+- Import statements showing dependency graph
+
+Use this to GUIDE your exploration — you know what files exist and what they export.
+Then do targeted deep-reads on the files most relevant to your focus area.
+If aid-distilled.md doesn't exist, proceed with the exploration strategy below.
+
 **For tech focus:**
 ```bash
 # Package manifests

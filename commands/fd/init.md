@@ -467,11 +467,11 @@ Create `.fd/config.json` with all settings:
     "idempotency": true
   },
   "aid": {
-    "enabled": false,
+    "enabled": true,
     "include": "",
-    "exclude": "*test*,*spec*,*.config.*,node_modules",
+    "exclude": "*test*,*spec*,*.config.*,node_modules,vendor",
     "flags": "--format md",
-    "src_path": "."
+    "src_path": ""
   }
 }
 ```
