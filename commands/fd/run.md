@@ -183,7 +183,26 @@ Read these dynamically at runtime using $PLANNING_DIR:
    - `aid.flags` -- extra aid flags (string, only if aid.enabled)
    - `aid.src_path` -- source path to distill (string, only if aid.enabled)
 
-4. Read ROADMAP.md and STATE.md to understand project scope and current progress.
+5. **Resolve subagent models from `model_profile`:**
+
+   Use this lookup table to resolve which model each subagent type gets:
+
+   | Agent | quality | balanced | budget |
+   |-------|---------|----------|--------|
+   | fd-phase-researcher | opus | sonnet | haiku |
+   | fd-planner | opus | sonnet | sonnet |
+   | fd-plan-checker | opus | sonnet | haiku |
+   | fd-executor | opus | sonnet | haiku |
+   | fd-verifier | opus | sonnet | haiku |
+
+   If `model_profile` is `"adaptive"`, defer model resolution to each phase's difficulty classification (Step 2.A.0):
+   - simple → budget column
+   - moderate → balanced column
+   - complex → quality column
+
+   Store the resolved model for each agent type as variables (e.g., `MODEL_RESEARCHER`, `MODEL_PLANNER`, etc.) to use in subsequent Task() calls.
+
+6. Read ROADMAP.md and STATE.md to understand project scope and current progress.
 
 4b. Load cross-session deviation memory (if exists):
    ```bash
@@ -432,6 +451,7 @@ IMPORTANT: Your final response to the lead must be ONLY a single status line:
 'STATUS: complete -- RESEARCH.md written to $PLANNING_DIR/phases/{phase_dir}/'",
   description="Research Phase {N}: {phase_name}",
   subagent_type="fd-phase-researcher",
+  model=MODEL_RESEARCHER,
   run_in_background=true
 )
 ```
@@ -482,6 +502,7 @@ IMPORTANT: Your final response to the lead must be ONLY a single status line:
 'STATUS: complete -- {N} plans created in $PLANNING_DIR/phases/{phase_dir}/'",
   description="Plan Phase {N}: {phase_name}",
   subagent_type="fd-planner",
+  model=MODEL_PLANNER,
   run_in_background=true
 )
 ```
@@ -531,6 +552,7 @@ IMPORTANT: Your final response to the lead must be ONLY a single status line:
 'STATUS: {N} blockers found -- needs revision' if issues exist",
   description="Check Phase {N} plans",
   subagent_type="fd-plan-checker",
+  model=MODEL_PLAN_CHECKER,
   run_in_background=true
 )
 ```
@@ -581,6 +603,7 @@ IMPORTANT: Your final response must be ONLY:
 'STATUS: revised -- {N} plans updated'",
     description="Revise Phase {N} plans (attempt {revision_count})",
     subagent_type="fd-planner",
+    model=MODEL_PLANNER,
     run_in_background=true
   )
 
@@ -605,6 +628,7 @@ IMPORTANT: Your final response must be ONLY:
 'STATUS: passed' or 'STATUS: {N} blockers found -- needs revision'",
     description="Re-check Phase {N} plans (attempt {revision_count})",
     subagent_type="fd-plan-checker",
+    model=MODEL_PLAN_CHECKER,
     run_in_background=true
   )
 
@@ -656,12 +680,18 @@ Phase {N} execution schedule:
 
 For each wave (sequential):
 
-**Spawn 1 background subagent per plan in this wave (parallel):**
+**Spawn 1 background subagent per plan in this wave (parallel), respecting `max_parallel`:**
 
-All subagents in the same wave are spawned in a SINGLE message with multiple Task calls.
+If the wave has more plans than `agent_team.max_parallel` (default: 4), split into sub-batches:
+- Sub-batch 1: first `max_parallel` plans → spawn parallel, wait for all
+- Sub-batch 2: next `max_parallel` plans → spawn parallel, wait for all
+- Continue until all plans in the wave are done
+
+All subagents in the same sub-batch are spawned in a SINGLE message with multiple Task calls.
 
 ```
-For each plan in current_wave:
+For each sub_batch of current_wave (chunk by max_parallel):
+ For each plan in sub_batch:
 
   bg_exec = Task(
     prompt="You are an FD executor. Read /root/.claude/agents/fd-executor.md for your instructions.
@@ -691,15 +721,16 @@ IMPORTANT: Your final response must be ONLY:
 or 'STATUS: error -- {description}'",
     description="Execute {plan_id}",
     subagent_type="fd-executor",
+    model=MODEL_EXECUTOR,
     mode="bypassPermissions",
     run_in_background=true
   )
 ```
 
-**Wait for all subagents in this wave:**
+**Wait for all subagents in this sub-batch:**
 
 ```
-For each bg_exec in current_wave:
+ For each bg_exec in sub_batch:
   TaskOutput(task_id=bg_exec.task_id, block=true, timeout=600000)
 ```
 
@@ -723,8 +754,13 @@ retry_count = 0
 while error AND retry_count < repair.max_retries:
   retry_count++
 
-  # Idempotency check
-  if SUMMARY.md exists for this plan: skip retry
+  # Idempotency check (repair.idempotency, default: true)
+  if repair.idempotency is true AND SUMMARY.md exists for this plan: skip retry
+
+  # Backoff (repair.backoff, default: "none")
+  if repair.backoff == "linear": wait 30s * retry_count
+  if repair.backoff == "exponential": wait 30s * 2^retry_count
+  if repair.backoff == "none": retry immediately
 
   # Write error context to file for retry subagent
   # (error details are in the TaskOutput result)
@@ -748,6 +784,7 @@ IMPORTANT: Your final response must be ONLY:
 or 'STATUS: error -- {description}'",
     description="Retry {plan_id} (attempt {retry_count + 1})",
     subagent_type="fd-executor",
+    model=MODEL_EXECUTOR,
     mode="bypassPermissions",
     run_in_background=true
   )
@@ -799,6 +836,7 @@ IMPORTANT: Your final response to the lead must be ONLY a single status line:
 'STATUS: human_needed -- {description}' if human verification required",
   description="Verify Phase {N}: {phase_name}",
   subagent_type="fd-verifier",
+  model=MODEL_VERIFIER,
   run_in_background=true
 )
 ```
@@ -865,6 +903,7 @@ IMPORTANT: Your final response must be ONLY:
 'STATUS: complete -- {N} gap closure plans created'",
   description="Gap Plan Phase {N} (iteration {gap_iteration})",
   subagent_type="fd-planner",
+  model=MODEL_PLANNER,
   run_in_background=true
 )
 
