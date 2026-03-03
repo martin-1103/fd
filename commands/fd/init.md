@@ -448,7 +448,7 @@ Create `.fd/config.json` with all settings:
   "depth": "quick|standard|comprehensive",
   "parallelization": true,
   "commit_docs": true|false,
-  "model_profile": "quality|balanced|budget",
+  "model_profile": "quality|balanced|budget|adaptive",
   "workflow": {
     "research": true|false,
     "plan_check": true|false,
