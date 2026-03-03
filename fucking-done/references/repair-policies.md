@@ -4,7 +4,7 @@ Repair policies control how FD handles failures during execution and gap closure
 
 ## Policy Configuration
 
-In `.planning/config.json`:
+In `.fd/planning/config.json`:
 ```json
 "repair": {
   "max_retries": 2,

@@ -1,6 +1,6 @@
 # State Template
 
-Template for `.planning/STATE.md` — the project's living memory.
+Template for `.fd/planning/STATE.md` — the project's living memory.
 
 ---
 
@@ -11,7 +11,7 @@ Template for `.planning/STATE.md` — the project's living memory.
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated [date])
+See: .fd/planning/PROJECT.md (updated [date])
 
 **Core value:** [One-liner from PROJECT.md Core Value section]
 **Current focus:** [Current phase name]
@@ -56,7 +56,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-[From .planning/todos/pending/ — ideas captured during sessions]
+[From .fd/planning/todos/pending/ — ideas captured during sessions]
 
 None yet.
 
@@ -147,7 +147,7 @@ Updated after each plan completion.
 
 **Pending Todos:** Ideas captured via /fd:add-todo
 - Count of pending todos
-- Reference to .planning/todos/pending/
+- Reference to .fd/planning/todos/pending/
 - Brief list if few, count if many (e.g., "5 pending todos — see /fd:check-todos")
 
 **Blockers/Concerns:** From "Next Phase Readiness" sections

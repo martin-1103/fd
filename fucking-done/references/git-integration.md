@@ -51,7 +51,7 @@ Phases:
 What to commit:
 
 ```bash
-git add .planning/
+git add .fd/planning/
 git commit
 ```
 
@@ -124,16 +124,16 @@ Tasks completed: [N]/[N]
 - [Task 2 name]
 - [Task 3 name]
 
-SUMMARY: .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
+SUMMARY: .fd/planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
 ```
 
 What to commit:
 
 ```bash
-git add .planning/phases/XX-name/{phase}-{plan}-PLAN.md
-git add .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
-git add .planning/STATE.md
-git add .planning/ROADMAP.md
+git add .fd/planning/phases/XX-name/{phase}-{plan}-PLAN.md
+git add .fd/planning/phases/XX-name/{phase}-{plan}-SUMMARY.md
+git add .fd/planning/STATE.md
+git add .fd/planning/ROADMAP.md
 git commit
 ```
 
@@ -154,7 +154,7 @@ Current: [task name]
 What to commit:
 
 ```bash
-git add .planning/
+git add .fd/planning/
 git commit
 ```
 

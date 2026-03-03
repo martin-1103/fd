@@ -1,12 +1,13 @@
 ---
-name: fd:new-project
-description: Initialize a new project with deep context gathering and PROJECT.md (Fucking Done)
+name: fd:feature
+description: Plan a feature — research, requirements, and roadmap (Fucking Done)
 argument-hint: feature-name (lowercase-hyphen, e.g. "auth-system", "chat-widget")
 allowed-tools:
   - Read
   - Bash
   - Write
   - Task
+  - TaskOutput
   - AskUserQuestion
 ---
 
@@ -19,407 +20,50 @@ FEATURE = $ARGUMENTS (trimmed)
 ```
 
 **Validation:**
-1. If `FEATURE` is empty → Output "ERROR: Feature name required. Usage: /fd:new-project <feature-name>" and STOP.
+1. If `FEATURE` is empty → Output "ERROR: Feature name required. Usage: /fd:feature <feature-name>" and STOP.
 2. If `FEATURE` contains spaces or uppercase → Output "ERROR: Feature name must be lowercase-hyphen format (e.g. 'auth-system', 'chat-widget')" and STOP.
-3. Set `PLANNING_DIR = .planning/$FEATURE`
+3. Set `PLANNING_DIR = .fd/planning/$FEATURE`
 
-All paths below use `$PLANNING_DIR/` instead of `.planning/`.
+All paths below use `$PLANNING_DIR/` instead of `.fd/planning/`.
+
+**Prerequisite check:**
+
+```bash
+[ -f .fd/PROJECT.md ] || { echo "ERROR: Project not initialized. Run /fd:init first."; exit 1; }
+[ -f .fd/config.json ] || { echo "ERROR: Project config missing. Run /fd:init first."; exit 1; }
+```
 
 <objective>
 
-Initialize a new project through unified flow: questioning → research (optional) → requirements → roadmap.
+Plan a feature: research the domain, define requirements, create a roadmap.
 
-This is the most leveraged moment in any project. Deep questioning here means better plans, better execution, better outcomes. One command takes you from idea to ready-for-planning.
+Requires `/fd:init` to have been run first (creates `.fd/PROJECT.md` and `.fd/config.json`).
 
 **Creates:**
-- `$PLANNING_DIR/PROJECT.md` — project context
-- `$PLANNING_DIR/config.json` — workflow preferences
 - `$PLANNING_DIR/research/` — domain research (optional)
 - `$PLANNING_DIR/REQUIREMENTS.md` — scoped requirements
 - `$PLANNING_DIR/ROADMAP.md` — phase structure
-- `$PLANNING_DIR/STATE.md` — project memory
+- `$PLANNING_DIR/STATE.md` — feature memory
 
-**After this command:** Run `/fd:discuss-phase 1` then `/fd:run` to start.
+**After this command:** Run `/fd:discuss-phase $FEATURE 1` then `/fd:run $FEATURE` to start.
 
 </objective>
 
 <execution_context>
 
-@/root/.claude/fucking-done/references/questioning.md
 @/root/.claude/fucking-done/references/ui-brand.md
-@/root/.claude/fucking-done/templates/project.md
 @/root/.claude/fucking-done/templates/requirements.md
 
 </execution_context>
 
 <process>
 
-## Phase 1: Setup
-
-**MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**
-
-1. **Abort if project exists:**
-   ```bash
-   [ -f $PLANNING_DIR/PROJECT.md ] && echo "ERROR: Project already initialized. Use /fd:progress" && exit 1
-   ```
-
-2. **Initialize git repo in THIS directory** (required even if inside a parent repo):
-   ```bash
-   if [ -d .git ] || [ -f .git ]; then
-       echo "Git repo exists in current directory"
-   else
-       git init
-       echo "Initialized new git repo"
-   fi
-   ```
-
-3. **Detect existing code (brownfield detection):**
-   ```bash
-   CODE_FILES=$(find . -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.swift" -o -name "*.java" 2>/dev/null | grep -v node_modules | grep -v .git | head -20)
-   HAS_PACKAGE=$([ -f package.json ] || [ -f requirements.txt ] || [ -f Cargo.toml ] || [ -f go.mod ] || [ -f Package.swift ] && echo "yes")
-   HAS_CODEBASE_MAP=$([ -d $PLANNING_DIR/codebase ] && echo "yes")
-   ```
-
-   **You MUST run all bash commands above using the Bash tool before proceeding.**
-
-## Phase 2: Brownfield Detection
-
-**If existing code detected** (`CODE_FILES` non-empty OR `HAS_PACKAGE` is "yes"):
-
-Note this is a brownfield project. Codebase mapping will be handled automatically by `aid` distillation when `/fd:run $FEATURE` executes (Phase 0, step 5b).
-
-Continue to Phase 3.
-
-## Phase 3: Deep Questioning
-
-**Display stage banner:**
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  FD ► QUESTIONING [$FEATURE]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-**Open the conversation:**
-
-Ask inline (freeform, NOT AskUserQuestion):
-
-"What do you want to build?"
-
-Wait for their response. This gives you the context needed to ask intelligent follow-up questions.
-
-**Follow the thread:**
-
-Based on what they said, ask follow-up questions that dig into their response. Use AskUserQuestion with options that probe what they mentioned — interpretations, clarifications, concrete examples.
-
-Keep following threads. Each answer opens new threads to explore. Ask about:
-- What excited them
-- What problem sparked this
-- What they mean by vague terms
-- What it would actually look like
-- What's already decided
-
-Consult `questioning.md` for techniques:
-- Challenge vagueness
-- Make abstract concrete
-- Surface assumptions
-- Find edges
-- Reveal motivation
-
-**Check context (background, not out loud):**
-
-As you go, mentally check the context checklist from `questioning.md`. If gaps remain, weave questions naturally. Don't suddenly switch to checklist mode.
-
-**Decision gate:**
-
-When you could write a clear PROJECT.md, use AskUserQuestion:
-
-- header: "Ready?"
-- question: "I think I understand what you're after. Ready to create PROJECT.md?"
-- options:
-  - "Create PROJECT.md" — Let's move forward
-  - "Keep exploring" — I want to share more / ask me more
-
-If "Keep exploring" — ask what they want to add, or identify gaps and probe naturally.
-
-Loop until "Create PROJECT.md" selected.
-
-## Phase 4: Write PROJECT.md
-
-Synthesize all context into `$PLANNING_DIR/PROJECT.md` using the template from `templates/project.md`.
-
-**For greenfield projects:**
-
-Initialize requirements as hypotheses:
-
-```markdown
-## Requirements
-
-### Validated
-
-(None yet — ship to validate)
-
-### Active
-
-- [ ] [Requirement 1]
-- [ ] [Requirement 2]
-- [ ] [Requirement 3]
-
-### Out of Scope
-
-- [Exclusion 1] — [why]
-- [Exclusion 2] — [why]
-```
-
-All Active requirements are hypotheses until shipped and validated.
-
-**For brownfield projects (codebase map exists):**
-
-Infer Validated requirements from existing code:
-
-1. Read `$PLANNING_DIR/codebase/ARCHITECTURE.md` and `STACK.md`
-2. Identify what the codebase already does
-3. These become the initial Validated set
-
-```markdown
-## Requirements
-
-### Validated
-
-- ✓ [Existing capability 1] — existing
-- ✓ [Existing capability 2] — existing
-- ✓ [Existing capability 3] — existing
-
-### Active
-
-- [ ] [New requirement 1]
-- [ ] [New requirement 2]
-
-### Out of Scope
-
-- [Exclusion 1] — [why]
-```
-
-**Key Decisions:**
-
-Initialize with any decisions made during questioning:
-
-```markdown
-## Key Decisions
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| [Choice from questioning] | [Why] | — Pending |
-```
-
-**Last updated footer:**
-
-```markdown
----
-*Last updated: [date] after initialization*
-```
-
-Do not compress. Capture everything gathered.
-
-**Commit PROJECT.md:**
-
-```bash
-mkdir -p $PLANNING_DIR
-git add $PLANNING_DIR/PROJECT.md
-git commit -m "$(cat <<'EOF'
-docs($FEATURE): initialize project
-
-[One-liner from PROJECT.md What This Is section]
-EOF
-)"
-```
-
-## Phase 5: Workflow Preferences
-
-**Round 1 — Core workflow settings (3 questions):**
-
-```
-questions: [
-  {
-    header: "Mode",
-    question: "How do you want to work?",
-    multiSelect: false,
-    options: [
-      { label: "YOLO (Recommended)", description: "Auto-approve, just execute" },
-      { label: "Interactive", description: "Confirm at each step" }
-    ]
-  },
-  {
-    header: "Depth",
-    question: "How thorough should planning be?",
-    multiSelect: false,
-    options: [
-      { label: "Quick", description: "Ship fast (3-5 phases, 1-3 plans each)" },
-      { label: "Standard", description: "Balanced scope and speed (5-8 phases, 3-5 plans each)" },
-      { label: "Comprehensive", description: "Thorough coverage (8-12 phases, 5-10 plans each)" }
-    ]
-  },
-  {
-    header: "Git Tracking",
-    question: "Commit planning docs to git?",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Planning docs tracked in version control" },
-      { label: "No", description: "Keep $PLANNING_DIR/ local-only (add to .gitignore)" }
-    ]
-  }
-]
-```
-
-**Round 2 — Workflow agents:**
-
-These spawn additional agents during planning/execution. They add tokens and time but improve quality.
-
-| Agent | When it runs | What it does |
-|-------|--------------|--------------|
-| **Researcher** | Before planning each phase | Investigates domain, finds patterns, surfaces gotchas |
-| **Plan Checker** | After plan is created | Verifies plan actually achieves the phase goal |
-| **Verifier** | After phase execution | Confirms must-haves were delivered |
-
-All recommended for important projects. Skip for quick experiments.
-
-```
-questions: [
-  {
-    header: "Research",
-    question: "Research before planning each phase? (adds tokens/time)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Investigate domain, find patterns, surface gotchas" },
-      { label: "No", description: "Plan directly from requirements" }
-    ]
-  },
-  {
-    header: "Plan Check",
-    question: "Verify plans will achieve their goals? (adds tokens/time)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Catch gaps before execution starts" },
-      { label: "No", description: "Execute plans without verification" }
-    ]
-  },
-  {
-    header: "Verifier",
-    question: "Verify work satisfies requirements after each phase? (adds tokens/time)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Confirm deliverables match phase goals" },
-      { label: "No", description: "Trust execution, skip verification" }
-    ]
-  },
-  {
-    header: "Model Profile",
-    question: "Which AI models for planning agents?",
-    multiSelect: false,
-    options: [
-      { label: "Balanced (Recommended)", description: "Sonnet for most agents — good quality/cost ratio" },
-      { label: "Quality", description: "Opus for research/roadmap — higher cost, deeper analysis" },
-      { label: "Budget", description: "Haiku where possible — fastest, lowest cost" }
-    ]
-  }
-]
-```
-
-**Round 3 — Fucking done settings:**
-
-```
-questions: [
-  {
-    header: "Team Models",
-    question: "Which models for fucking done execution?",
-    multiSelect: false,
-    options: [
-      { label: "Opus lead + Sonnet teammates (Recommended)", description: "Best quality/cost balance" },
-      { label: "All Opus", description: "Highest quality, highest cost" },
-      { label: "Sonnet lead + Haiku teammates", description: "Budget option" }
-    ]
-  }
-]
-```
-
-Create `$PLANNING_DIR/config.json` with all settings:
-
-```json
-{
-  "mode": "yolo|interactive",
-  "depth": "quick|standard|comprehensive",
-  "parallelization": true,
-  "commit_docs": true|false,
-  "model_profile": "quality|balanced|budget",
-  "workflow": {
-    "research": true|false,
-    "plan_check": true|false,
-    "verifier": true|false,
-    "difficulty_aware": true
-  },
-  "agent_team": {
-    "lead_model": "opus",
-    "teammate_model": "sonnet",
-    "max_gap_loops": 3,
-    "max_parallel": 4,
-    "isolation": "shared"
-  },
-  "repair": {
-    "max_retries": 2,
-    "backoff": "none",
-    "timeout_minutes": 30,
-    "idempotency": true
-  },
-  "aid": {
-    "enabled": false,
-    "include": "",
-    "exclude": "*test*,*spec*,*.config.*,node_modules",
-    "flags": "--format md",
-    "src_path": "."
-  }
-}
-```
-
-Note: `aid.include` defaults to empty (auto-detect from project). For Go+React use `"*.go,*.tsx,*.ts"`, Python use `"*.py"`, etc.
-
-Note: `parallelization` is always `true` — fucking done always runs plans in parallel via fucking dones.
-
-Map Round 3 selections to `agent_team` config:
-- "Opus lead + Sonnet teammates" → `lead_model: "opus"`, `teammate_model: "sonnet"`
-- "All Opus" → `lead_model: "opus"`, `teammate_model: "opus"`
-- "Sonnet lead + Haiku teammates" → `lead_model: "sonnet"`, `teammate_model: "haiku"`
-
-**If commit_docs = No:**
-- Set `commit_docs: false` in config.json
-- Add `$PLANNING_DIR/` to `.gitignore` (create if needed)
-
-**If commit_docs = Yes:**
-- No additional gitignore entries needed
-
-**Commit config.json:**
-
-```bash
-git add $PLANNING_DIR/config.json
-git commit -m "$(cat <<'EOF'
-chore($FEATURE): add project config
-
-Mode: [chosen mode]
-Depth: [chosen depth]
-Parallelization: enabled
-Workflow agents: research=[on/off], plan_check=[on/off], verifier=[on/off]
-Fucking done: [lead_model] lead + [teammate_model] teammates
-EOF
-)"
-```
-
-**Note:** Run `/fd:settings` anytime to update these preferences.
-
 ## Phase 5.5: Resolve Model Profile
 
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(cat $PLANNING_DIR/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(cat .fd/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -462,7 +106,7 @@ mkdir -p $PLANNING_DIR/research
 **Determine milestone context:**
 
 Check if this is greenfield or subsequent milestone:
-- If no "Validated" requirements in PROJECT.md → Greenfield (building from scratch)
+- If no "Validated" requirements in `.fd/PROJECT.md` → Greenfield (building from scratch)
 - If "Validated" requirements exist → Subsequent milestone (adding to existing app)
 
 Display spawning indicator:
@@ -700,10 +344,14 @@ Display stage banner:
 
 **Load context:**
 
-Read PROJECT.md and extract:
+Read `.fd/PROJECT.md` and extract:
 - Core value (the ONE thing that must work)
 - Stated constraints (budget, timeline, tech limitations)
 - Any explicit scope boundaries
+
+**For brownfield projects (codebase map exists at `.fd/codebase/`):**
+
+Read `.fd/codebase/ARCHITECTURE.md` and `.fd/codebase/STACK.md` to understand existing capabilities. Use this to infer validated requirements.
 
 **If research exists:** Read research/FEATURES.md and extract feature categories.
 
@@ -852,7 +500,7 @@ PLANNING_DIR: $PLANNING_DIR/
 <planning_context>
 
 **Project:**
-@$PLANNING_DIR/PROJECT.md
+@.fd/PROJECT.md
 
 **Requirements:**
 @$PLANNING_DIR/REQUIREMENTS.md
@@ -861,7 +509,7 @@ PLANNING_DIR: $PLANNING_DIR/
 @$PLANNING_DIR/research/SUMMARY.md
 
 **Config:**
-@$PLANNING_DIR/config.json
+@.fd/config.json
 
 </planning_context>
 
@@ -984,15 +632,15 @@ Present completion with next steps:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  FD ► PROJECT INITIALIZED ✓ [$FEATURE]
+  FD ► FEATURE PLANNED ✓ [$FEATURE]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**[Project Name]**
+**[Project Name] — $FEATURE**
 
 | Artifact       | Location                          |
 |----------------|-----------------------------------|
-| Project        | `$PLANNING_DIR/PROJECT.md`        |
-| Config         | `$PLANNING_DIR/config.json`       |
+| Project        | `.fd/PROJECT.md`                  |
+| Config         | `.fd/config.json`                 |
 | Research       | `$PLANNING_DIR/research/`         |
 | Requirements   | `$PLANNING_DIR/REQUIREMENTS.md`   |
 | Roadmap        | `$PLANNING_DIR/ROADMAP.md`        |
@@ -1005,14 +653,14 @@ Present completion with next steps:
 
 **Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-/fd:discuss-phase 1 — gather context and clarify approach
+/fd:discuss-phase $FEATURE 1 — gather context and clarify approach
 
 <sub>/clear first → fresh context window</sub>
 
 ---
 
 **Then run:**
-- /fd:run — plan, execute, and verify automatically with fucking dones
+- /fd:run $FEATURE — plan, execute, and verify automatically with fucking dones
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -1021,8 +669,6 @@ Present completion with next steps:
 
 <output>
 
-- `$PLANNING_DIR/PROJECT.md`
-- `$PLANNING_DIR/config.json`
 - `$PLANNING_DIR/research/` (if research selected)
   - `STACK.md`
   - `FEATURES.md`
@@ -1037,12 +683,11 @@ Present completion with next steps:
 
 <success_criteria>
 
-- [ ] $PLANNING_DIR/ directory created
-- [ ] Git repo initialized
-- [ ] Brownfield detection completed
-- [ ] Deep questioning completed (threads followed, not rushed)
-- [ ] PROJECT.md captures full context → **committed**
-- [ ] config.json has workflow mode, depth, parallelization, agent_team → **committed**
+- [ ] Feature name argument parsed and validated
+- [ ] .fd/PROJECT.md exists (prerequisite check)
+- [ ] .fd/config.json exists (prerequisite check)
+- [ ] $PLANNING_DIR set to .fd/planning/$FEATURE
+- [ ] Model profile resolved from .fd/config.json
 - [ ] Research completed (if selected) — 4 parallel agents spawned → **committed**
 - [ ] Requirements gathered (from research or conversation)
 - [ ] User scoped each category (v1/v2/out of scope)
@@ -1053,7 +698,7 @@ Present completion with next steps:
 - [ ] ROADMAP.md created with phases, requirement mappings, success criteria
 - [ ] STATE.md initialized
 - [ ] REQUIREMENTS.md traceability updated
-- [ ] User knows next step is `/fd:discuss-phase 1` then `/fd:run`
+- [ ] User knows next step is `/fd:discuss-phase $FEATURE 1` then `/fd:run $FEATURE`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 

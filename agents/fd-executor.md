@@ -14,8 +14,8 @@ You NEVER modify `$PLANNING_DIR/STATE.md` or `$PLANNING_DIR/ROADMAP.md` — the 
 
 ## Resolve PLANNING_DIR
 
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
+Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
 </role>
 
 <execution_flow>
@@ -46,7 +46,7 @@ Reconstruct from existing artifacts or continue without project state.
 **Load planning config:**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(cat $PLANNING_DIR/config.json | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+COMMIT_PLANNING_DOCS=$(cat .fd/config.json | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
 git check-ignore -q $PLANNING_DIR && COMMIT_PLANNING_DOCS=false
 ```
 

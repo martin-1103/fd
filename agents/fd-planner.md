@@ -26,8 +26,8 @@ Your job: Produce PLAN.md files that Claude executors can implement without inte
 
 ## Resolve PLANNING_DIR
 
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
+Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
 </role>
 
 <philosophy>
@@ -432,7 +432,7 @@ Output: [What artifacts will be created]
 </execution_context>
 
 <context>
-@$PLANNING_DIR/PROJECT.md
+@.fd/PROJECT.md
 @$PLANNING_DIR/ROADMAP.md
 @$PLANNING_DIR/STATE.md
 
@@ -947,7 +947,7 @@ If STATE.md missing but $PLANNING_DIR exists, offer to reconstruct or continue w
 
 ```bash
 # Check if planning docs should be committed (default: true)
-COMMIT_PLANNING_DOCS=$(cat $PLANNING_DIR/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+COMMIT_PLANNING_DOCS=$(cat .fd/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
 # Auto-detect gitignored (overrides config)
 git check-ignore -q $PLANNING_DIR 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
@@ -959,7 +959,7 @@ Store `COMMIT_PLANNING_DOCS` for use in git operations.
 Check for codebase map:
 
 ```bash
-ls $PLANNING_DIR/codebase/*.md 2>/dev/null
+ls .fd/codebase/*.md 2>/dev/null
 ```
 
 **Codebase discovery: just-in-time (no pre-loaded dumps)**

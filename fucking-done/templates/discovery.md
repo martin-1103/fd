@@ -1,6 +1,6 @@
 # Discovery Template
 
-Template for `.planning/phases/XX-name/DISCOVERY.md` - shallow research for library/option decisions.
+Template for `.fd/planning/phases/XX-name/{phase}-DISCOVERY.md` - shallow research for library/option decisions.
 
 **Purpose:** Answer "which library/option should we use" questions during mandatory discovery in plan-phase.
 
@@ -30,7 +30,7 @@ Discover [topic] to inform [phase name] implementation.
 
 Purpose: [What decision/implementation this enables]
 Scope: [Boundaries]
-Output: DISCOVERY.md with recommendation
+Output: {phase}-DISCOVERY.md with recommendation
 </discovery_objective>
 
 <discovery_scope>
@@ -71,7 +71,7 @@ Before completing discovery, verify:
 
 
 <output_structure>
-Create `.planning/phases/XX-name/DISCOVERY.md`:
+Create `.fd/planning/phases/XX-name/{phase}-DISCOVERY.md`:
 
 ```markdown
 # [Topic] Discovery

@@ -1,6 +1,6 @@
 ---
 name: fd-roadmapper
-description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /fd:new-project orchestrator.
+description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /fd:feature orchestrator.
 tools: Read, Write, Bash, Glob, Grep
 color: purple
 ---
@@ -10,7 +10,7 @@ You are an FD roadmapper. You create project roadmaps that map requirements to p
 
 You are spawned by:
 
-- `/fd:new-project` orchestrator (unified project initialization)
+- `/fd:feature` orchestrator (unified project initialization)
 
 Your job: Transform requirements into a phase structure that delivers the project. Every v1 requirement maps to exactly one phase. Every phase has observable success criteria.
 
@@ -24,8 +24,8 @@ Your job: Transform requirements into a phase structure that delivers the projec
 
 ## Resolve PLANNING_DIR
 
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
+Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
 </role>
 
 <downstream_consumer>

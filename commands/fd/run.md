@@ -36,10 +36,10 @@ The `$ARGUMENTS` variable contains the feature name. Parse and validate it immed
 3. Set variables:
    ```
    FEATURE=$ARGUMENTS
-   PLANNING_DIR=.planning/$FEATURE
+   PLANNING_DIR=.fd/planning/$FEATURE
    ```
 
-All subsequent paths use `$PLANNING_DIR` instead of `.planning/`.
+All subsequent paths use `$PLANNING_DIR` instead of `.fd/planning/`.
 </argument_parsing>
 
 <objective>
@@ -75,7 +75,7 @@ Architecture split:
 Read these dynamically at runtime using $PLANNING_DIR:
 - $PLANNING_DIR/ROADMAP.md
 - $PLANNING_DIR/STATE.md
-- $PLANNING_DIR/config.json
+- .fd/config.json
 </context>
 
 <process>
@@ -88,12 +88,12 @@ Read these dynamically at runtime using $PLANNING_DIR:
 
    $PLANNING_DIR/ directory not found.
 
-   **To fix:** Run /fd:new-project first to initialize project structure.
+   **To fix:** Run /fd:init first to initialize project structure.
    ```
 
 2. Read config.json for settings:
    ```bash
-   cat $PLANNING_DIR/config.json
+   cat .fd/config.json
    ```
 
 3. Extract these settings into variables you will reference throughout:
@@ -132,23 +132,25 @@ Read these dynamically at runtime using $PLANNING_DIR:
 
 5. Load planning config for commit behavior:
    ```bash
-   COMMIT_PLANNING_DOCS=$(cat $PLANNING_DIR/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+   COMMIT_PLANNING_DOCS=$(cat .fd/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
    git check-ignore -q $PLANNING_DIR 2>/dev/null && COMMIT_PLANNING_DOCS=false
    ```
 
-5b. **Codebase context strategy: just-in-time discovery (no pre-loading)**
+5b. **Codebase context strategy: structured map + just-in-time discovery**
 
-   Subagents have Grep, Glob, Read, and Bash tools. They discover codebase context on-demand by searching directly. No pre-loaded dumps.
+   **Primary:** If `.fd/codebase/` exists (created by `/fd:map-codebase` or `/fd:init` brownfield flow), subagents reference these 7 structured documents (STACK.md, INTEGRATIONS.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, CONCERNS.md) for codebase understanding. Pass `.fd/codebase/` path to subagents — they read relevant docs themselves.
 
-   **Optional:** If `aid.enabled` is `true` in config, run aid distillation as supplementary reference:
+   **Always available:** Subagents have Grep, Glob, Read, and Bash tools. They discover additional codebase context on-demand by searching directly. The structured map provides the foundation; just-in-time search fills gaps.
+
+   **Supplementary:** If `aid.enabled` is `true` in config, run aid distillation as additional reference:
    ```bash
-   mkdir -p $PLANNING_DIR/codebase
+   mkdir -p .fd/codebase
    aid "${aid.src_path:-.}" \
      --include "${aid.include}" \
      --exclude "${aid.exclude}" \
      ${aid.flags} \
      --summary-type off \
-     -o $PLANNING_DIR/codebase/aid-distilled.md
+     -o .fd/codebase/aid-distilled.md
    ```
    If aid fails or not found, skip silently — it's not required.
 
@@ -200,14 +202,14 @@ ls -d $PLANNING_DIR/phases/*/ 2>/dev/null
 Check these files to classify each phase:
 - Has PLAN.md files? (planned)
 - Has SUMMARY.md files for each PLAN.md? (executed)
-- Has VERIFICATION.md? (verified)
-- VERIFICATION.md status field? (passed / gaps_found)
+- Has *-VERIFICATION.md files? (verified)
+- *-VERIFICATION.md status field? (passed / gaps_found)
 
 Classification rules:
 - **needs_planning**: Phase exists in ROADMAP but has no PLAN.md files in its directory
 - **needs_execution**: Has PLAN.md file(s) but at least one PLAN.md is missing a corresponding SUMMARY.md
-- **needs_verification**: All plans have SUMMARY.md but no VERIFICATION.md exists, OR VERIFICATION.md has `status: gaps_found`
-- **complete**: VERIFICATION.md exists with `status: passed`
+- **needs_verification**: All plans have SUMMARY.md but no *-VERIFICATION.md exists, OR *-VERIFICATION.md has `status: gaps_found`
+- **complete**: *-VERIFICATION.md exists with `status: passed`
 
 ### Step 1.4: Classify phase difficulty (if difficulty_aware enabled)
 
@@ -684,7 +686,7 @@ Read these files yourself:
 Use Grep/Glob/Read to explore the codebase directly for verification. Do NOT rely on pre-loaded dumps.
 
 Verify that all plans were executed correctly and the phase goal is met.
-Write VERIFICATION.md to the phase directory.
+Write {phase}-VERIFICATION.md to the phase directory.
 
 IMPORTANT: Your final response to the lead must be ONLY a single status line:
 'STATUS: passed' if all criteria met
@@ -745,7 +747,7 @@ Phase directory: $PLANNING_DIR/phases/{phase_dir}/
 PLANNING_DIR: $PLANNING_DIR/
 
 Read these files yourself:
-- Verification report: $PLANNING_DIR/phases/{phase_dir}/VERIFICATION.md (contains gaps to fix)
+- Verification report: $PLANNING_DIR/phases/{phase_dir}/{NN}-VERIFICATION.md (contains gaps to fix)
 - All existing PLAN.md files in $PLANNING_DIR/phases/{phase_dir}/
 - All existing SUMMARY.md files in $PLANNING_DIR/phases/{phase_dir}/
 
@@ -811,7 +813,7 @@ For phases that passed verification (or skipped verification):
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
 ```bash
-git add $PLANNING_DIR/ROADMAP.md $PLANNING_DIR/STATE.md $PLANNING_DIR/phases/{phase_dir}/VERIFICATION.md
+git add $PLANNING_DIR/ROADMAP.md $PLANNING_DIR/STATE.md $PLANNING_DIR/phases/{phase_dir}/*-VERIFICATION.md
 ```
 
 If REQUIREMENTS.md was updated:
@@ -1016,7 +1018,7 @@ Task status is derived from filesystem:
    - $PLANNING_DIR/ROADMAP.md
    - $PLANNING_DIR/STATE.md
    - $PLANNING_DIR/REQUIREMENTS.md (only if updated)
-   - $PLANNING_DIR/phases/{phase_dir}/VERIFICATION.md
+   - $PLANNING_DIR/phases/{phase_dir}/*-VERIFICATION.md
 3. Commit message format: `docs({phase}): complete {phase-name} phase`
 
 **Orchestrator State Commits:** Done by the lead (you):
@@ -1165,8 +1167,8 @@ Phase 3: Cleanup & Completion
 
 <success_criteria>
 - [ ] Feature name argument parsed and validated
-- [ ] $PLANNING_DIR set to .planning/$FEATURE
-- [ ] Config loaded and validated from $PLANNING_DIR/config.json
+- [ ] $PLANNING_DIR set to .fd/planning/$FEATURE
+- [ ] Config loaded and validated from .fd/config.json
 - [ ] Phases classified by difficulty (if difficulty_aware)
 - [ ] **Per-phase pipeline**: each phase processed completely (plan->execute->verify) before next
 - [ ] **Background subagents**: all subagents use run_in_background=true

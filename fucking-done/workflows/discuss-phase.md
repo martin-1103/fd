@@ -63,17 +63,29 @@ Capture the idea in a "Deferred Ideas" section. Don't lose it, don't act on it.
 
 <step name="validate_phase" priority="first">
 Parse arguments: first token = FEATURE, second token = PHASE.
-Set PLANNING_DIR=`.planning/$FEATURE`
+Set PLANNING_DIR=`.fd/planning/$FEATURE`
 
 Load and validate:
 - Read `$PLANNING_DIR/STATE.md`
 - Read `$PLANNING_DIR/ROADMAP.md`
 - Find phase entry in roadmap
 
+Resolve phase directory:
+```bash
+PADDED_PHASE=$(printf "%02d" $PHASE 2>/dev/null || echo "$PHASE")
+PHASE_DIR=$(ls -d $PLANNING_DIR/phases/$PADDED_PHASE-* $PLANNING_DIR/phases/$PHASE-* 2>/dev/null | head -1)
+
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_NAME=$(grep -E "^### Phase $PHASE:" "$PLANNING_DIR/ROADMAP.md" | sed 's/^### Phase [^:]*: *//')
+  PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
+  PHASE_DIR="$PLANNING_DIR/phases/${PADDED_PHASE}-${PHASE_SLUG}"
+fi
+```
+
 **If feature directory not found:**
 ```
-Feature directory `.planning/$FEATURE` ga ada.
-Jalanin `/fd:new-project` dulu.
+Feature directory `.fd/planning/$FEATURE` ga ada.
+Jalanin `/fd:init` dulu.
 ```
 Exit workflow.
 
@@ -88,7 +100,7 @@ Exit workflow.
 </step>
 
 <step name="check_existing">
-Check if `$PLANNING_DIR/phases/{PHASE}-CONTEXT.md` exists.
+Check if `$PHASE_DIR/$PADDED_PHASE-CONTEXT.md` exists.
 
 **If NOT exists:** Continue to analyze_phase.
 
@@ -134,7 +146,7 @@ Continue to present_gray_areas.
 <step name="present_gray_areas">
 Present the domain boundary and gray areas to user.
 
-**KNOWN BUG (github.com/anthropics/claude-code/issues/9846): AskUserQuestion silently fails when called in the first assistant response after a slash command. Do NOT call AskUserQuestion in this step. Use freeform text only — same pattern as /fd:new-project.**
+**KNOWN BUG (github.com/anthropics/claude-code/issues/9846): AskUserQuestion silently fails when called in the first assistant response after a slash command. Do NOT call AskUserQuestion in this step. Use freeform text only — same pattern as /fd:init.**
 
 Present everything as plain text with numbered gray areas. End with a freeform question:
 
@@ -220,11 +232,11 @@ Track deferred ideas internally.
 <step name="write_context">
 Create/update CONTEXT.md capturing decisions made.
 
-**File location:** `$PLANNING_DIR/phases/{PHASE}-CONTEXT.md`
+**File location:** `$PHASE_DIR/$PADDED_PHASE-CONTEXT.md`
 
 **Ensure directory exists:**
 ```bash
-mkdir -p "$PLANNING_DIR/phases"
+mkdir -p "$PHASE_DIR"
 ```
 
 **Structure the content using the template from context.md. Sections match areas discussed:**
@@ -281,14 +293,14 @@ mkdir -p "$PLANNING_DIR/phases"
 *Context gathered: [date]*
 ```
 
-Write the file. Continue to confirm_creation.
+Write to `$PHASE_DIR/$PADDED_PHASE-CONTEXT.md`. Continue to confirm_creation.
 </step>
 
 <step name="confirm_creation">
 Present summary and next steps:
 
 ```
-CONTEXT.md updated: $PLANNING_DIR/phases/{PHASE}-CONTEXT.md
+CONTEXT.md updated: $PHASE_DIR/$PADDED_PHASE-CONTEXT.md
 
 ## Decisions yang ke-capture
 

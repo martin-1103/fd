@@ -10,11 +10,14 @@ Multi-agent project management framework untuk Claude Code. Dua workflow utama: 
 │   ├── README.md
 │   ├── analyze.md
 │   ├── discuss-phase.md
+│   ├── feature.md
 │   ├── fix.md
-│   ├── new-project.md
+│   ├── init.md
+│   ├── map-codebase.md
 │   ├── planner.md
 │   └── run.md
 ├── agents/                   ← Background worker agents
+│   ├── fd-codebase-mapper.md
 │   ├── fd-executor.md
 │   ├── fd-phase-researcher.md
 │   ├── fd-plan-checker.md
@@ -70,7 +73,7 @@ File-file berikut mengandung **hardcoded absolute path** ke `/root/.claude/fucki
 | `agents/fd-research-synthesizer.md` | Agent |
 | `agents/fd-roadmapper.md` | Agent |
 | `commands/fd/discuss-phase.md` | Command |
-| `commands/fd/new-project.md` | Command |
+| `commands/fd/init.md` | Command |
 | `commands/fd/run.md` | Command |
 | `fucking-done/templates/phase-prompt.md` | Template |
 | `fucking-done/templates/codebase/structure.md` | Template |
@@ -91,20 +94,23 @@ Ganti `USERNAME` dengan username kamu.
 ### Build Workflow — Bikin fitur baru
 
 ```
-/fd:new-project → /fd:discuss-phase → /fd:run
+/fd:init → /fd:feature → /fd:discuss-phase → /fd:run
 ```
 
 | Command | Fungsi | Input | Output |
 |---------|--------|-------|--------|
-| `/fd:new-project <name>` | Init project, deep context gathering | Nama fitur | `.planning/<name>/PROJECT.md` |
-| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase name | Phase context |
+| `/fd:init` | Init project, deep context gathering | (none) | `.fd/PROJECT.md`, `.fd/config.json` |
+| `/fd:map-codebase` | Analyze codebase with parallel agents | (none) | `.fd/codebase/` (7 docs) |
+| `/fd:feature <name>` | Plan a feature (research, requirements, roadmap) | Nama fitur | `.fd/planning/<name>/` |
+| `/fd:discuss-phase <feature> <phase>` | Q&A untuk gather context phase | Feature + phase number | Phase context |
 | `/fd:run <name>` | Plan, execute, verify semua phase | Nama fitur | Built feature + verification |
 
 **Contoh:**
 
 ```
-/fd:new-project chat-widget
-/fd:discuss-phase chat-widget phase-1-ui
+/fd:init
+/fd:feature chat-widget
+/fd:discuss-phase chat-widget 1
 /fd:run chat-widget
 ```
 
@@ -133,15 +139,15 @@ Ganti `USERNAME` dengan username kamu.
 ### Build Workflow
 
 ```
-  /fd:new-project         /fd:discuss-phase          /fd:run
-  ┌─────────────┐        ┌──────────────────┐      ┌─────────────────────┐
-  │ Research     │        │ Adaptive Q&A     │      │ For each phase:     │
-  │ domain &    │──────▶ │ per phase        │────▶│  1. Research        │
-  │ create      │        │ (gather context) │      │  2. Plan            │
-  │ PROJECT.md  │        └──────────────────┘      │  3. Check plan      │
-  └─────────────┘                                   │  4. Execute         │
-                                                    │  5. Verify          │
-                                                    └─────────────────────┘
+  /fd:init           /fd:feature          /fd:discuss-phase       /fd:run
+  ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐   ┌─────────────────────┐
+  │ Setup       │   │ Research     │   │ Adaptive Q&A     │   │ For each phase:     │
+  │ PROJECT.md  │──▶│ Requirements │──▶│ per phase        │──▶│  1. Research        │
+  │ config.json │   │ Roadmap      │   │ (gather context) │   │  2. Plan            │
+  │ codebase/   │   └──────────────┘   └──────────────────┘   │  3. Check plan      │
+  └─────────────┘                                              │  4. Execute         │
+                                                               │  5. Verify          │
+                                                               └─────────────────────┘
 ```
 
 ### Fix Workflow
@@ -181,7 +187,7 @@ FD butuh beberapa MCP servers dan built-in tools. **Tanpa ini, beberapa fitur ti
 
 | Skenario | MCP yang dibutuhkan |
 |----------|-------------------|
-| Build workflow (`/fd:new-project`, `/fd:run`) | **Context7** (strongly recommended) |
+| Build workflow (`/fd:init`, `/fd:feature`, `/fd:run`) | **Context7** (strongly recommended) |
 | Fix workflow — code-only bugs | Tidak ada (semua pakai built-in tools) |
 | Fix workflow — web app bugs (URL input) | **Playwright** |
 | Fix workflow — deep research | **Tavily** dan/atau **Exa** (optional, WebSearch sebagai fallback) |
@@ -214,7 +220,7 @@ Repo: https://github.com/ast-grep/ast-grep
 
 Extract code structure/API surface untuk context compression. Default disabled (`aid.enabled: false` di config). Skip otomatis kalau ga terinstall.
 
-Dipakai oleh: `/fd:run`, `/fd:new-project`
+Dipakai oleh: `/fd:run`, `/fd:feature`
 
 ```bash
 # Download binary dari GitHub releases
@@ -296,9 +302,10 @@ Tambahkan di `~/.claude/settings.json` atau project-level `.claude/settings.json
 
 | Agent | Fungsi | Dipanggil oleh |
 |-------|--------|----------------|
-| `fd-project-researcher` | Research domain ecosystem | `/fd:new-project` |
-| `fd-research-synthesizer` | Synthesize research outputs | `/fd:new-project` |
-| `fd-roadmapper` | Buat roadmap dari PROJECT.md | `/fd:new-project` |
+| `fd-codebase-mapper` | Analyze codebase per focus area | `/fd:map-codebase`, `/fd:init` |
+| `fd-project-researcher` | Research domain ecosystem | `/fd:feature` |
+| `fd-research-synthesizer` | Synthesize research outputs | `/fd:feature` |
+| `fd-roadmapper` | Buat roadmap dari PROJECT.md | `/fd:feature` |
 | `fd-phase-researcher` | Research implementasi per phase | `/fd:run` |
 | `fd-planner` | Buat execution plan per phase | `/fd:run` |
 | `fd-plan-checker` | Verify plan sebelum execute | `/fd:run` |

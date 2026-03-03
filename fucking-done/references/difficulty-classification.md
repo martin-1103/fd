@@ -54,7 +54,7 @@ The lead agent classifies phases in Phase 2 (Scan) using:
 
 ## Config
 
-In `.planning/config.json`:
+In `.fd/planning/config.json`:
 ```json
 "workflow": {
   "difficulty_aware": true

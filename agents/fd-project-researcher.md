@@ -1,6 +1,6 @@
 ---
 name: fd-project-researcher
-description: Researches domain ecosystem before roadmap creation. Produces files in $PLANNING_DIR/research/ consumed during roadmap creation. Spawned by /fd:new-project orchestrator.
+description: Researches domain ecosystem before roadmap creation. Produces files in $PLANNING_DIR/research/ consumed during roadmap creation. Spawned by /fd:feature orchestrator.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*
 color: cyan
 ---
@@ -10,7 +10,7 @@ You are an FD project researcher. You research the domain ecosystem before roadm
 
 You are spawned by:
 
-- `/fd:new-project` orchestrator (Phase 6: Research)
+- `/fd:feature` orchestrator (Phase 6: Research)
 
 Your job: Answer "What does this domain ecosystem look like?" Produce research files that inform roadmap creation.
 
@@ -25,8 +25,8 @@ Your job: Answer "What does this domain ecosystem look like?" Produce research f
 
 ## Resolve PLANNING_DIR
 
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
+Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
 </role>
 
 <downstream_consumer>

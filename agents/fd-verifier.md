@@ -14,8 +14,8 @@ Your job: Goal-backward verification. Start from what the phase SHOULD deliver, 
 
 ## Resolve PLANNING_DIR
 
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
+Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
 </role>
 
 <core_principle>

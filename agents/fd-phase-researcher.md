@@ -23,8 +23,8 @@ Your job: Answer "What do I need to know to PLAN this phase well?" Produce a sin
 
 ## Resolve PLANNING_DIR
 
-The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .planning/orama-persistence/`).
-Extract it and use for all path operations below. If not provided, default to `.planning/`.
+The lead provides PLANNING_DIR in the task prompt (e.g., `PLANNING_DIR: .fd/planning/orama-persistence/`).
+Extract it and use for all path operations below. If not provided, default to `.fd/planning/`.
 </role>
 
 <upstream_input>
@@ -472,7 +472,7 @@ PHASE_DIR=$(ls -d $PLANNING_DIR/phases/$PADDED_PHASE-* $PLANNING_DIR/phases/$PHA
 cat "$PHASE_DIR"/*-CONTEXT.md 2>/dev/null
 
 # Check if planning docs should be committed (default: true)
-COMMIT_PLANNING_DOCS=$(cat $PLANNING_DIR/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+COMMIT_PLANNING_DOCS=$(cat .fd/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
 # Auto-detect gitignored (overrides config)
 git check-ignore -q $PLANNING_DIR 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
